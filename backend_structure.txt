@@ -1,0 +1,302 @@
+If Kangrow is focused on **AI-powered E-commerce Business Building**, then your backend should not be built around screens (Chat, Dashboard, etc.).
+
+It should be built around **Business Capabilities**.
+
+---
+
+# Kangrow AI Backend Architecture (Final MVP + Future)
+
+```text
+backend/
+│
+├── src/
+│
+├── core/
+│   │
+│   ├── config/
+│   │   ├── env.config.ts
+│   │   ├── database.config.ts
+│   │   ├── redis.config.ts
+│   │   ├── openai.config.ts
+│   │   └── logger.config.ts
+│   │
+│   ├── middleware/
+│   │   ├── auth.middleware.ts
+│   │   ├── role.middleware.ts
+│   │   ├── rateLimit.middleware.ts
+│   │   ├── validation.middleware.ts
+│   │   └── error.middleware.ts
+│   │
+│   ├── utils/
+│   │   ├── promptBuilder.ts
+│   │   ├── responseFormatter.ts
+│   │   ├── scoreCalculator.ts
+│   │   ├── textCleaner.ts
+│   │   └── helpers.ts
+│   │
+│   └── constants/
+│
+│
+├── modules/
+│
+│   ├── auth/
+│   │   ├── controller/
+│   │   ├── service/
+│   │   ├── repository/
+│   │   ├── dto/
+│   │   └── routes/
+│   │
+│   ├── users/
+│   │
+│   ├── profile/
+│   │
+│   ├── subscriptions/
+│   │
+│   ├── notifications/
+│   │
+│   └── analytics/
+│
+│
+├── ai/
+│   │
+│   ├── router/
+│   │   └── aiRouter.service.ts
+│   │
+│   ├── onboarding-engine/
+│   │   ├── questionGenerator.ts
+│   │   ├── preferenceAnalyzer.ts
+│   │   └── onboardingState.ts
+│   │
+│   ├── orchestrator/
+│   │   └── orchestrator.service.ts
+│   │
+│   ├── memory/
+│   │   ├── memory.service.ts
+│   │   ├── memoryExtractor.ts
+│   │   ├── memoryRetriever.ts
+│   │   └── memoryRanker.ts
+│   │
+│   ├── context/
+│   │   ├── contextBuilder.ts
+│   │   └── contextManager.ts
+│   │
+│   ├── prompts/
+│   │   ├── ecommerce.prompt.ts
+│   │   ├── validation.prompt.ts
+│   │   ├── roadmap.prompt.ts
+│   │   ├── growth.prompt.ts
+│   │   └── competitor.prompt.ts
+│   │
+│   ├── providers/
+│   │   ├── openai.provider.ts
+│   │   ├── claude.provider.ts
+│   │   └── gemini.provider.ts
+│   │
+│   └── response/
+│       ├── formatter.ts
+│       ├── parser.ts
+│       └── validator.ts
+│
+│
+├── ecommerce/
+│   │
+│   ├── product-research/
+│   │   ├── service/
+│   │   ├── repository/
+│   │   └── controller/
+│   │
+│   ├── idea-engine/
+│   │   ├── generator.service.ts
+│   │   ├── scorer.service.ts
+│   │   └── selector.service.ts
+│   │
+│   ├── validation-engine/
+│   │   ├── market.service.ts
+│   │   ├── risk.service.ts
+│   │   ├── profit.service.ts
+│   │   └── validation.service.ts
+│   │
+│   ├── competitor-analysis/
+│   │   ├── competitor.service.ts
+│   │   ├── pricing.service.ts
+│   │   └── gap.service.ts
+│   │
+│   ├── market-intelligence/
+│   │   ├── trends.service.ts
+│   │   ├── opportunities.service.ts
+│   │   └── demand.service.ts
+│   │
+│   ├── business-planner/
+│   │   ├── businessPlan.service.ts
+│   │   ├── roadmap.service.ts
+│   │   └── taskGenerator.service.ts
+│   │
+│   └── growth-engine/
+│       ├── growth.service.ts
+│       ├── recommendation.service.ts
+│       └── optimization.service.ts
+│
+│
+├── workspace/
+│   │
+│   ├── startups/
+│   │
+│   ├── documents/
+│   │
+│   ├── roadmaps/
+│   │
+│   ├── tasks/
+│   │
+│   ├── saved-research/
+│   │
+│   └── business-plans/
+│
+│
+├── chat/
+│   │
+│   ├── sessions/
+│   │
+│   ├── messages/
+│   │
+│   ├── history/
+│   │
+│   └── search/
+│
+│
+├── integrations/
+│   │
+│   ├── openai/
+│   │
+│   ├── google/
+│   │
+│   ├── firebase/
+│   │
+│   ├── stripe/
+│   │
+│   ├── razorpay/
+│   │
+│   ├── email/
+│   │
+│   └── storage/
+│
+│
+├── admin/
+│   │
+│   ├── dashboard/
+│   │
+│   ├── users/
+│   │
+│   ├── startups/
+│   │
+│   ├── ai-cost/
+│   │
+│   ├── prompts/
+│   │
+│   ├── notifications/
+│   │
+│   ├── subscriptions/
+│   │
+│   └── audit-logs/
+│
+│
+├── database/
+│   │
+│   ├── migrations/
+│   │
+│   ├── seeders/
+│   │
+│   └── schemas/
+│
+│
+├── jobs/
+│   │
+│   ├── dailyInsights.job.ts
+│   ├── notification.job.ts
+│   ├── cleanup.job.ts
+│   ├── analytics.job.ts
+│   └── recommendation.job.ts
+│
+│
+└── main.ts
+```
+
+# Most Important Part (The Brain)
+
+```text
+AI ROUTER
+│
+├── Product Discovery
+├── Product Validation
+├── Market Analysis
+├── Competitor Analysis
+├── Business Planning
+├── Growth Coaching
+└── General Chat
+```
+
+Example:
+
+User:
+
+```text
+I have ₹50,000. What ecommerce business should I start?
+```
+
+Router detects:
+
+```text
+Intent:
+Product Discovery
+```
+
+Automatically runs:
+
+```text
+Idea Engine
++
+Market Intelligence
++
+Validation Engine
++
+Recommendation Engine
+```
+
+Then combines everything into one answer.
+
+---
+
+# MVP Modules Only
+
+For your first 2 months, build only:
+
+```text
+Auth
+│
+Users
+│
+Business Profile
+│
+Onboarding Engine
+│
+AI Router
+│
+Memory Engine
+│
+Idea Engine
+│
+Validation Engine
+│
+Roadmap Engine
+│
+Workspace
+│
+Chat
+│
+Notifications
+│
+Admin
+```
+
+Everything else can be added later.
+
+This architecture will feel like a real **AI E-commerce Co-Founder Platform**, not just another OpenAI wrapper.

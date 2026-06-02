@@ -1,0 +1,13 @@
+name: kangrow_ai_workspace
+
+packages:
+  - .
+  - "admin_app"
+
+ignore:
+  - "backend/**"
+
+command:
+  bootstrap:
+    # It seems so there is no shared package yet, but setting up good defaults
+    usePubspecOverrides: true

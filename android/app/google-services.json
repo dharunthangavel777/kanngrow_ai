@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "255124081047",
+    "project_id": "kanngrow-ai-qwok",
+    "storage_bucket": "kanngrow-ai-qwok.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:255124081047:android:d77714ddbbf1ee4ed35cd2",
+        "android_client_info": {
+          "package_name": "com.example.kangrow_ai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "255124081047-ipfov9s8mgmvqdl9e2fp88bh4pnt9ca9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKbTJZsA4bh__9MLxXsRIJPPAUjgQ5XK4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "255124081047-ipfov9s8mgmvqdl9e2fp88bh4pnt9ca9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
