@@ -6,6 +6,8 @@ import '../../models/message.dart';
 import '../cards/startup_idea_card.dart';
 import '../cards/task_card.dart';
 import '../cards/roadmap_card.dart';
+import '../cards/kangrow_score_card.dart';
+import 'knowledge_source_badge.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;
@@ -60,6 +62,24 @@ class _MessageBubbleState extends State<MessageBubble> {
           .slideY(begin: 0.05, end: 0, duration: 250.ms);
     }
 
+    if (msg.type == MessageType.validationCard) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.88,
+            ),
+            child: KangrowScoreCard(metadata: msg.metadata ?? {}),
+          ),
+        ),
+      )
+          .animate()
+          .fadeIn(duration: 300.ms)
+          .slideY(begin: 0.05, end: 0, duration: 250.ms);
+    }
+
     if (msg.type == MessageType.roadmapCard) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
@@ -99,13 +119,18 @@ class _MessageBubbleState extends State<MessageBubble> {
                   child: Column(
                     crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                     children: [
-                      if (!isUser && msg.usedModules != null && msg.usedModules!.isNotEmpty)
+                      if (!isUser && ((msg.usedModules != null && msg.usedModules!.isNotEmpty) || (msg.metadata != null && msg.metadata!['knowledgeInjected'] == true)))
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Wrap(
                             spacing: 6,
                             runSpacing: 6,
-                            children: msg.usedModules!.map((m) => _buildModuleBadge(m)).toList(),
+                            children: [
+                              if (msg.metadata != null && msg.metadata!['knowledgeInjected'] == true)
+                                const KnowledgeSourceBadge(),
+                              if (msg.usedModules != null)
+                                ...msg.usedModules!.map((m) => _buildModuleBadge(m)),
+                            ],
                           ),
                         ),
                       Container(

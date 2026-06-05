@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../utils/network_config.dart';
 import '../app_theme.dart';
-import '../screens/auth_screen.dart';
 import '../sheets/app_sheets.dart';
 import '../sheets/notifications_sheet.dart';
 import '../sheets/profile_sheet.dart';
 import '../widgets/chat/chat_header.dart';
+import '../widgets/auth_wrapper.dart';
+import '../widgets/skeleton/profile_skeleton.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -31,9 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final response = await http.get(
         Uri.parse('${NetworkConfig.baseUrl}/profile'),
-        headers: {
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -73,13 +74,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _Card(
                   children: [
                     _loading 
-                      ? const Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: Center(child: CircularProgressIndicator(color: AppColors.lightCyan)),
-                        )
+                      ? const ProfileSkeleton()
                       : _UserRow(
                           profile: _profile,
-                          onTap: () => _openSheet(context, const ProfileSheet()),
+                          onTap: () => _openSheet(context, ProfileSheet(profile: _profile, onSaved: _fetchProfile)),
                         ),
                   ],
                 ),
@@ -89,10 +87,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // ── Main Menu ────────────────────────────────────────
                 _Card(
                   children: [
-                    _Row(icon: Icons.person_outline_rounded,
-                        label: 'Account',
-                        onTap: () => _openSheet(context, const ProfileSheet())),
-                    _Divider(),
                     _Row(icon: Icons.workspace_premium_outlined,
                         label: 'Subscription',
                         onTap: () => _openSheet(context, const PlanSheet())),
@@ -124,13 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _Divider(),
                     _Row(
                       icon: Icons.help_outline_rounded,
-                      label: 'FAQ',
-                      onTap: () => _openSheet(context, const HelpSupportSheet()),
-                    ),
-                    _Divider(),
-                    _Row(
-                      icon: Icons.support_agent_rounded,
-                      label: 'Customer Support',
+                      label: 'Help & Support',
                       onTap: () => _openSheet(context, const HelpSupportSheet()),
                     ),
                   ],
@@ -253,16 +241,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.5)))),
           TextButton(
-              onPressed: () {
-                Navigator.pop(context);
+              onPressed: () async {
+                Navigator.pop(context); // close dialog
+                await context.read<AuthProvider>().signOut(context);
+                if (!context.mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
-                  PageRouteBuilder(
-                    pageBuilder: (_, __, ___) => const AuthScreen(),
-                    transitionsBuilder: (_, anim, __, child) =>
-                        FadeTransition(opacity: anim, child: child),
-                    transitionDuration: const Duration(milliseconds: 500),
-                  ),
-                  (_) => false,
+                  MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                  (route) => false,
                 );
               },
               child: const Text('Log Out',

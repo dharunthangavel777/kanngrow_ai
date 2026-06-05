@@ -125,7 +125,12 @@ class _NewChatRowState extends State<_NewChatRow> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => context.read<ChatProvider>().createNewChat(),
+          onTap: () {
+            context.read<ChatProvider>().createNewChat();
+            if (Scaffold.maybeOf(context)?.isDrawerOpen ?? false) {
+              Navigator.of(context).pop();
+            }
+          },
           splashColor: Colors.white.withValues(alpha: 0.04),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -274,7 +279,12 @@ class _ChatItemState extends State<_ChatItem> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: () => provider.selectChat(widget.chat.id),
+        onTap: () {
+          provider.selectChat(widget.chat.id);
+          if (Scaffold.maybeOf(context)?.isDrawerOpen ?? false) {
+            Navigator.of(context).pop();
+          }
+        },
         onLongPress: () => _showDeleteDialog(context, provider),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),

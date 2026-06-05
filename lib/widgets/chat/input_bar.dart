@@ -69,6 +69,7 @@ class _InputBarState extends State<InputBar> {
                     Expanded(
                       child: TextField(
                         controller: _controller,
+                        autofocus: false,
                         maxLines: 5,
                         minLines: 1,
                         textInputAction: TextInputAction.newline,

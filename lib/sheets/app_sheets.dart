@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../app_theme.dart';
 import '../utils/app_toast.dart';
 
@@ -315,118 +317,176 @@ class _SecuritySheetState extends State<SecuritySheet> {
   bool _biometrics = true;
   bool _twoFactor = false;
   bool _sessionAlerts = true;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final security = data['securitySettings'] as Map<String, dynamic>?;
+        if (security != null) {
+          setState(() {
+            _biometrics = security['biometrics'] ?? true;
+            _twoFactor = security['twoFactor'] ?? false;
+            _sessionAlerts = security['sessionAlerts'] ?? true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading security settings: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _saveSetting(String key, bool value) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'securitySettings': {
+          key: value,
+        }
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Error saving security setting: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) => _AppSheet(
         title: 'Security',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF052E16).withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                    color: const Color(0xFF22C55E).withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 38, height: 38,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF22C55E).withValues(alpha: 0.12),
-                    ),
-                    child: const Icon(Icons.verified_user_outlined,
-                        color: Color(0xFF22C55E), size: 20),
+        child: _loading
+            ? const SizedBox(
+                height: 200,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan),
                   ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Status card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF052E16).withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: const Color(0xFF22C55E).withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
                       children: [
-                        Text('Account Secured',
-                            style: TextStyle(
-                                color: Color(0xFF22C55E),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600)),
-                        SizedBox(height: 2),
-                        Text('Your account is protected',
-                            style: TextStyle(
-                                color: Color(0xFF22C55E),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400)),
+                        Container(
+                          width: 38, height: 38,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFF22C55E).withValues(alpha: 0.12),
+                          ),
+                          child: const Icon(Icons.verified_user_outlined,
+                              color: Color(0xFF22C55E), size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Account Secured',
+                                  style: TextStyle(
+                                      color: Color(0xFF22C55E),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600)),
+                              SizedBox(height: 2),
+                              Text('Your account is protected',
+                                  style: TextStyle(
+                                      color: Color(0xFF22C55E),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400)),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
 
-            _SectionLabel('Authentication'),
-            _SheetCard(children: [
-              _SheetToggle(
-                icon: Icons.fingerprint_rounded,
-                label: 'Biometric Unlock',
-                subtitle: 'Use fingerprint or face ID to unlock',
-                value: _biometrics,
-                onChanged: (v) {
-                  setState(() => _biometrics = v);
-                  AppToast.show(context,
-                      v ? 'Biometrics enabled' : 'Biometrics disabled');
-                },
-              ),
-              _SheetDivider(),
-              _SheetToggle(
-                icon: Icons.security_rounded,
-                label: 'Two-Factor Authentication',
-                subtitle: 'Add an extra layer of security',
-                value: _twoFactor,
-                onChanged: (v) {
-                  setState(() => _twoFactor = v);
-                  AppToast.show(context,
-                      v ? '2FA enabled — check your email' : '2FA disabled',
-                      icon: v
-                          ? Icons.security_rounded
-                          : Icons.no_encryption_gmailerrorred_rounded,
-                      isWarning: !v);
-                },
-              ),
-            ]),
+                  _SectionLabel('Authentication'),
+                  _SheetCard(children: [
+                    _SheetToggle(
+                      icon: Icons.fingerprint_rounded,
+                      label: 'Biometric Unlock',
+                      subtitle: 'Use fingerprint or face ID to unlock',
+                      value: _biometrics,
+                      onChanged: (v) {
+                        setState(() => _biometrics = v);
+                        _saveSetting('biometrics', v);
+                        AppToast.show(context,
+                            v ? 'Biometrics enabled' : 'Biometrics disabled');
+                      },
+                    ),
+                    _SheetDivider(),
+                    _SheetToggle(
+                      icon: Icons.security_rounded,
+                      label: 'Two-Factor Authentication',
+                      subtitle: 'Add an extra layer of security',
+                      value: _twoFactor,
+                      onChanged: (v) {
+                        setState(() => _twoFactor = v);
+                        _saveSetting('twoFactor', v);
+                        AppToast.show(context,
+                            v ? '2FA enabled — check your email' : '2FA disabled',
+                            icon: v
+                                ? Icons.security_rounded
+                                : Icons.no_encryption_gmailerrorred_rounded,
+                            isWarning: !v);
+                      },
+                    ),
+                  ]),
 
-            _SectionLabel('Activity'),
-            _SheetCard(children: [
-              _SheetToggle(
-                icon: Icons.notifications_active_outlined,
-                label: 'Login Alerts',
-                subtitle: 'Get notified of new sign-ins',
-                value: _sessionAlerts,
-                onChanged: (v) {
-                  setState(() => _sessionAlerts = v);
-                  AppToast.show(context,
-                      v ? 'Login alerts on' : 'Login alerts off');
-                },
-              ),
-              _SheetDivider(),
-              _SheetRow(
-                icon: Icons.devices_outlined,
-                label: 'Active Sessions',
-                value: '1 device',
-                onTap: () => AppToast.show(
-                    context, 'You have 1 active session',
-                    icon: Icons.devices_outlined),
-              ),
-              _SheetDivider(),
-              _SheetRow(
-                icon: Icons.history_rounded,
-                label: 'Login History',
-                onTap: () => AppToast.show(
-                    context, 'Last login: today at 12:10 AM',
-                    icon: Icons.history_rounded),
-              ),
-            ]),
+                  _SectionLabel('Activity'),
+                  _SheetCard(children: [
+                    _SheetToggle(
+                      icon: Icons.notifications_active_outlined,
+                      label: 'Login Alerts',
+                      subtitle: 'Get notified of new sign-ins',
+                      value: _sessionAlerts,
+                      onChanged: (v) {
+                        setState(() => _sessionAlerts = v);
+                        _saveSetting('sessionAlerts', v);
+                        AppToast.show(context,
+                            v ? 'Login alerts on' : 'Login alerts off');
+                      },
+                    ),
+                    _SheetDivider(),
+                    _SheetRow(
+                      icon: Icons.devices_outlined,
+                      label: 'Active Sessions',
+                      value: '1 device',
+                      onTap: () => AppToast.show(
+                          context, 'You have 1 active session',
+                          icon: Icons.devices_outlined),
+                    ),
+                    _SheetDivider(),
+                    _SheetRow(
+                      icon: Icons.history_rounded,
+                      label: 'Login History',
+                      onTap: () => AppToast.show(
+                          context, 'Last login: today at 12:10 AM',
+                          icon: Icons.history_rounded),
+                    ),
+                  ]),
 
             _SectionLabel('Account'),
             _SheetCard(children: [
@@ -1025,74 +1085,142 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   String _respLength = 'Medium';
   bool   _codeBlocks = true;
   bool   _markdown   = true;
+  bool   _loading    = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final preferences = data['preferences'] as Map<String, dynamic>?;
+        if (preferences != null) {
+          setState(() {
+            _language = preferences['language'] ?? 'English';
+            _model = preferences['model'] ?? 'Kangrow 2.0';
+            _respLength = preferences['respLength'] ?? 'Medium';
+            _codeBlocks = preferences['codeBlocks'] ?? true;
+            _markdown = preferences['markdown'] ?? true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading preferences: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _savePreference(String key, dynamic value) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'preferences': {
+          key: value,
+        }
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Error saving preference: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) => _AppSheet(
         title: 'Preferences',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionLabel('Language & Region'),
-            _SheetCard(children: [
-              _SheetRow(
-                icon: Icons.language_outlined,
-                label: 'Language',
-                value: _language,
-                onTap: () => _pick(context, 'Language',
-                    ['English', 'Hindi', 'Tamil', 'Spanish'],
-                    (v) => setState(() => _language = v)),
-              ),
-            ]),
+        child: _loading
+            ? const SizedBox(
+                height: 200,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan),
+                  ),
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel('Language & Region'),
+                  _SheetCard(children: [
+                    _SheetRow(
+                      icon: Icons.language_outlined,
+                      label: 'Language',
+                      value: _language,
+                      onTap: () => _pick(context, 'Language',
+                          ['English', 'Hindi', 'Tamil', 'Spanish'],
+                          (v) {
+                            setState(() => _language = v);
+                            _savePreference('language', v);
+                          }),
+                    ),
+                  ]),
 
-            _SectionLabel('AI Settings'),
-            _SheetCard(children: [
-              _SheetRow(
-                icon: Icons.smart_toy_outlined,
-                label: 'AI Model',
-                value: _model,
-                onTap: () => _pick(context, 'AI Model',
-                    ['Kangrow 2.0', 'Kangrow Pro', 'GPT-4', 'Claude 3'],
-                    (v) => setState(() => _model = v)),
-              ),
-              _SheetDivider(),
-              _SheetRow(
-                icon: Icons.text_fields_rounded,
-                label: 'Response Length',
-                value: _respLength,
-                onTap: () => _pick(context, 'Response Length',
-                    ['Concise', 'Medium', 'Detailed', 'Comprehensive'],
-                    (v) => setState(() => _respLength = v)),
-              ),
-            ]),
+                  _SectionLabel('AI Settings'),
+                  _SheetCard(children: [
+                    _SheetRow(
+                      icon: Icons.smart_toy_outlined,
+                      label: 'AI Model',
+                      value: _model,
+                      onTap: () => _pick(context, 'AI Model',
+                          ['Kangrow 2.0', 'Kangrow Pro', 'GPT-4', 'Claude 3'],
+                          (v) {
+                            setState(() => _model = v);
+                            _savePreference('model', v);
+                          }),
+                    ),
+                    _SheetDivider(),
+                    _SheetRow(
+                      icon: Icons.text_fields_rounded,
+                      label: 'Response Length',
+                      value: _respLength,
+                      onTap: () => _pick(context, 'Response Length',
+                          ['Concise', 'Medium', 'Detailed', 'Comprehensive'],
+                          (v) {
+                            setState(() => _respLength = v);
+                            _savePreference('respLength', v);
+                          }),
+                    ),
+                  ]),
 
-            _SectionLabel('Display'),
-            _SheetCard(children: [
-              _SheetToggle(
-                icon: Icons.code_rounded,
-                label: 'Syntax Highlighting',
-                subtitle: 'Colour code blocks in responses',
-                value: _codeBlocks,
-                onChanged: (v) {
-                  setState(() => _codeBlocks = v);
-                  AppToast.show(context,
-                      v ? 'Syntax highlighting on' : 'Syntax highlighting off');
-                },
+                  _SectionLabel('Display'),
+                  _SheetCard(children: [
+                    _SheetToggle(
+                      icon: Icons.code_rounded,
+                      label: 'Syntax Highlighting',
+                      subtitle: 'Colour code blocks in responses',
+                      value: _codeBlocks,
+                      onChanged: (v) {
+                        setState(() => _codeBlocks = v);
+                        _savePreference('codeBlocks', v);
+                        AppToast.show(context,
+                            v ? 'Syntax highlighting on' : 'Syntax highlighting off');
+                      },
+                    ),
+                    _SheetDivider(),
+                    _SheetToggle(
+                      icon: Icons.format_bold_rounded,
+                      label: 'Markdown Rendering',
+                      subtitle: 'Render bold, italic, and lists',
+                      value: _markdown,
+                      onChanged: (v) {
+                        setState(() => _markdown = v);
+                        _savePreference('markdown', v);
+                        AppToast.show(context,
+                            v ? 'Markdown rendering on' : 'Markdown rendering off');
+                      },
+                    ),
+                  ]),
+                ],
               ),
-              _SheetDivider(),
-              _SheetToggle(
-                icon: Icons.format_bold_rounded,
-                label: 'Markdown Rendering',
-                subtitle: 'Render bold, italic, and lists',
-                value: _markdown,
-                onChanged: (v) {
-                  setState(() => _markdown = v);
-                  AppToast.show(context,
-                      v ? 'Markdown rendering on' : 'Markdown rendering off');
-                },
-              ),
-            ]),
-          ],
-        ),
       );
 
   void _pick(BuildContext context, String title, List<String> options,
@@ -1370,7 +1498,7 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
 
           const SizedBox(height: 20),
           GestureDetector(
-            onTap: () {
+            onTap: () async {
               if (_rating == 0 && _ctrl.text.trim().isEmpty) {
                 AppToast.show(context,
                     'Please add a rating or message',
@@ -1378,7 +1506,26 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
                     isWarning: true);
                 return;
               }
-              setState(() => _submitted = true);
+              try {
+                final user = FirebaseAuth.instance.currentUser;
+                final uid = user?.uid ?? 'anonymous';
+                final email = user?.email ?? 'anonymous';
+
+                await FirebaseFirestore.instance.collection('feedback').add({
+                  'uid': uid,
+                  'email': email,
+                  'rating': _rating,
+                  'category': _category,
+                  'message': _ctrl.text.trim(),
+                  'createdAt': FieldValue.serverTimestamp(),
+                });
+
+                setState(() => _submitted = true);
+              } catch (e) {
+                if (context.mounted) {
+                  AppToast.show(context, 'Failed to submit feedback: $e', isError: true);
+                }
+              }
             },
             child: Container(
               width: double.infinity,

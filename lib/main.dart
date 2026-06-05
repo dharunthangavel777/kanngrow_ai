@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import 'app_theme.dart';
 import 'providers/chat_provider.dart';
 import 'providers/onboarding_provider.dart';
-import 'screens/onboarding_screen.dart';
-import 'screens/splash_screen.dart';
+import 'providers/auth_provider.dart';
+import 'widgets/auth_wrapper.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -21,6 +21,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => OnboardingProvider()),
       ],
@@ -38,9 +39,7 @@ class KangrowApp extends StatelessWidget {
       title: 'Kangrow AI',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: const SplashScreen(
-        next: OnboardingScreen(),
-      ),
+      home: const AuthWrapper(),
     );
   }
 }

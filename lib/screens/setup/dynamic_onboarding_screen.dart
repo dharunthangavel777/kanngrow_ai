@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../app_theme.dart';
 import '../../widgets/setup/wizard_option_card.dart';
+import '../../widgets/skeleton/onboarding_skeleton.dart';
 import '../../providers/onboarding_provider.dart';
 import '../chat_screen.dart';
 
@@ -154,14 +155,7 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const SizedBox(
-                            width: 60,
-                            height: 60,
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan),
-                              strokeWidth: 3,
-                            ),
-                          ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
+                          const OnboardingSkeleton().animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
                           const SizedBox(height: 24),
                           const Text(
                             'Analyzing your profile...',

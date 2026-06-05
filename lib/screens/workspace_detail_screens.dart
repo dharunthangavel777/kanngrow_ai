@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../../app_theme.dart';
 import '../widgets/chat/chat_header.dart';
 import '../../utils/network_config.dart';
+import '../widgets/skeleton/workspace_skeleton.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. SAVED PRODUCTS SCREEN
@@ -31,9 +32,7 @@ class _WorkspaceSavedProductsScreenState extends State<WorkspaceSavedProductsScr
     try {
       final response = await http.get(
         Uri.parse('${NetworkConfig.baseUrl}/ecommerce/ideas/saved'),
-        headers: {
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -57,9 +56,7 @@ class _WorkspaceSavedProductsScreenState extends State<WorkspaceSavedProductsScr
     try {
       final response = await http.delete(
         Uri.parse('${NetworkConfig.baseUrl}/ecommerce/ideas/saved/$ideaId'),
-        headers: {
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -116,9 +113,7 @@ class _WorkspaceSavedProductsScreenState extends State<WorkspaceSavedProductsScr
             ),
             Expanded(
               child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan)),
-                    )
+                  ? const WorkspaceSkeleton()
                   : _ideas.isEmpty
                       ? _buildEmptyState()
                       : ListView.builder(
@@ -261,9 +256,7 @@ class _WorkspaceRoadmapsScreenState extends State<WorkspaceRoadmapsScreen> {
     try {
       final response = await http.get(
         Uri.parse('${NetworkConfig.baseUrl}/workspace?type=roadmap'),
-        headers: {
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -287,9 +280,7 @@ class _WorkspaceRoadmapsScreenState extends State<WorkspaceRoadmapsScreen> {
     try {
       final response = await http.delete(
         Uri.parse('${NetworkConfig.baseUrl}/workspace/$id'),
-        headers: {
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -328,9 +319,7 @@ class _WorkspaceRoadmapsScreenState extends State<WorkspaceRoadmapsScreen> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan)),
-                    )
+                  ? const WorkspaceSkeleton()
                   : _roadmaps.isEmpty
                       ? _buildEmptyState()
                       : ListView.builder(
@@ -467,9 +456,7 @@ class _WorkspaceBusinessPlansScreenState extends State<WorkspaceBusinessPlansScr
     try {
       final response = await http.get(
         Uri.parse('${NetworkConfig.baseUrl}/workspace?type=business_plan'),
-        headers: {
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -493,9 +480,7 @@ class _WorkspaceBusinessPlansScreenState extends State<WorkspaceBusinessPlansScr
     try {
       final response = await http.delete(
         Uri.parse('${NetworkConfig.baseUrl}/workspace/$id'),
-        headers: {
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -534,9 +519,7 @@ class _WorkspaceBusinessPlansScreenState extends State<WorkspaceBusinessPlansScr
             ),
             Expanded(
               child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan)),
-                    )
+                  ? const WorkspaceSkeleton()
                   : _plans.isEmpty
                       ? _buildEmptyState()
                       : ListView.builder(
@@ -697,8 +680,47 @@ class _DetailRow extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. MARKET INTELLIGENCE SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
-class WorkspaceMarketIntelligenceScreen extends StatelessWidget {
+class WorkspaceMarketIntelligenceScreen extends StatefulWidget {
   const WorkspaceMarketIntelligenceScreen({super.key});
+
+  @override
+  State<WorkspaceMarketIntelligenceScreen> createState() => _WorkspaceMarketIntelligenceScreenState();
+}
+
+class _WorkspaceMarketIntelligenceScreenState extends State<WorkspaceMarketIntelligenceScreen> {
+  List<dynamic> _alerts = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAlerts();
+  }
+
+  Future<void> _fetchAlerts() async {
+    setState(() => _loading = true);
+    try {
+      final response = await http.get(
+        Uri.parse('${NetworkConfig.baseUrl}/market/alerts'),
+        headers: await NetworkConfig.getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['success'] == true && body['data'] != null) {
+          setState(() {
+            _alerts = body['data'] as List<dynamic>? ?? [];
+            _loading = false;
+          });
+          return;
+        }
+      }
+      throw Exception('Failed to load alerts');
+    } catch (e) {
+      setState(() => _loading = false);
+      debugPrint('Error fetching market alerts: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -719,31 +741,143 @@ class WorkspaceMarketIntelligenceScreen extends StatelessWidget {
                 'Market Intelligence',
                 style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
               ),
-              trailing: const SizedBox(width: 44),
+              trailing: HeaderBtn(
+                onTap: _fetchAlerts,
+                child: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+              ),
             ),
             Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.travel_explore_rounded, size: 48, color: Colors.white.withOpacity(0.2)),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'No Market Reports',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Generate deep-dive market intelligence reports\nusing the AI chat to save them here.',
-                      style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
+              child: _loading
+                  ? const WorkspaceSkeleton()
+                  : _alerts.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          itemCount: _alerts.length,
+                          itemBuilder: (context, idx) {
+                            final alert = _alerts[idx];
+                            return _buildAlertCard(alert);
+                          },
+                        ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.travel_explore_rounded, size: 48, color: Colors.white.withOpacity(0.2)),
+          const SizedBox(height: 16),
+          const Text(
+            'No Market Reports',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create active profiles and select industries\nto see personalized market alerts.',
+            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlertCard(Map<String, dynamic> alert) {
+    final title = alert['title'] as String? ?? 'Opportunity Alert';
+    final category = alert['category'] as String? ?? 'General';
+    final type = alert['type'] as String? ?? 'Trending';
+    final message = alert['message'] as String? ?? '';
+    final score = (alert['score'] ?? 0) as num;
+    final createdAt = alert['createdAt'] as String? ?? '';
+
+    String timeDisplay = 'Recent';
+    try {
+      if (createdAt.isNotEmpty) {
+        final date = DateTime.parse(createdAt).toLocal();
+        timeDisplay = '${date.month}/${date.day} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+      }
+    } catch (_) {}
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.lightCyan.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  type.toUpperCase(),
+                  style: const TextStyle(color: AppColors.lightCyan, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  category,
+                  style: const TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                timeDisplay,
+                style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: AppColors.borderDark),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Opportunity Score',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              Text(
+                '$score/100',
+                style: TextStyle(
+                  color: score >= 75 ? Colors.green : Colors.orange,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

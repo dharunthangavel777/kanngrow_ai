@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../app_theme.dart';
 import '../widgets/chat/chat_header.dart';
 import '../utils/network_config.dart';
+import '../widgets/skeleton/dashboard_skeleton.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -14,12 +15,14 @@ class HomeDashboardScreen extends StatefulWidget {
 
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Map<String, dynamic>? _profile;
+  List<dynamic> _alerts = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _fetchProfile();
+    _fetchAlerts();
   }
 
   Future<void> _fetchProfile() async {
@@ -27,9 +30,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     try {
       final response = await http.get(
         Uri.parse('${NetworkConfig.baseUrl}/profile'),
-        headers: {
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -46,6 +47,26 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     } catch (e) {
       setState(() => _loading = false);
       debugPrint('Error loading dashboard profile: $e');
+    }
+  }
+
+  Future<void> _fetchAlerts() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${NetworkConfig.baseUrl}/market/alerts'),
+        headers: await NetworkConfig.getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['success'] == true && body['data'] != null) {
+          setState(() {
+            _alerts = body['data'] as List<dynamic>;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching market alerts: $e');
     }
   }
 
@@ -105,14 +126,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan)),
-                    )
+                  ? const DashboardSkeleton()
                   : ListView(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                       children: [
                         _buildHealthScoreCard(progress),
                         const SizedBox(height: 20),
+                        _buildMarketAlertsBanner(),
                         _buildSectionTitle('Current Stage'),
                         const SizedBox(height: 12),
                         _buildCurrentStageCard(phaseTitle, phaseDesc, progress, industry),
@@ -155,15 +175,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           Stack(
             alignment: Alignment.center,
             children: [
-              SizedBox(
+              Container(
                 width: 72,
                 height: 72,
-                child: CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: 8,
-                  backgroundColor: AppColors.bgDark,
-                  color: AppColors.lightCyan,
-                  strokeCap: StrokeCap.round,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.bgDark,
+                  border: Border.all(color: AppColors.lightCyan.withValues(alpha: 0.3), width: 4),
                 ),
               ),
               Text(
@@ -351,6 +369,144 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             ],
           );
         }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildMarketAlertsBanner() {
+    if (_alerts.isEmpty) return const SizedBox.shrink();
+
+    final alert = _alerts.first;
+    final String title = alert['title'] ?? 'Trending Opportunity';
+    final String message = alert['message'] ?? '';
+    final String type = alert['type'] ?? 'Trending';
+    final int score = alert['score'] ?? 80;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.amber.withOpacity(0.08),
+            AppColors.lightCyan.withOpacity(0.03),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.withOpacity(0.25), width: 1.2),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _showAlertDetailsDialog(alert),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.campaign_rounded, color: Colors.amber, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              type.toUpperCase(),
+                              style: const TextStyle(color: Colors.amber, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Score: $score/100',
+                            style: const TextStyle(color: AppColors.lightCyan, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        title,
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        message,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: AppColors.textGray, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 14),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAlertDetailsDialog(dynamic alert) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.borderDark),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.campaign_rounded, color: Colors.amber, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                alert['title'] ?? 'Market Intel',
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Category: ${alert['category'] ?? "General"} | Opportunity Score: ${alert['score'] ?? 80}/100',
+              style: const TextStyle(color: AppColors.lightCyan, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              alert['message'] ?? '',
+              style: const TextStyle(color: AppColors.textWhite, fontSize: 14, height: 1.45),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'This alert was personalized for your business industry profile by the Kangrow intelligence engine.',
+              style: TextStyle(color: AppColors.textGray, fontSize: 11, height: 1.35),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it', style: TextStyle(color: AppColors.lightCyan, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

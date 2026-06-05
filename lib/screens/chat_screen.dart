@@ -8,6 +8,7 @@ import '../widgets/chat/hero_header.dart';
 import '../widgets/chat/chat_header.dart';
 import '../widgets/sidebar/sidebar_widget.dart';
 import '../widgets/floating_action_menu.dart';
+import '../widgets/skeleton/chat_skeleton.dart';
 
 // Collapsed header height
 const double _kHeaderHeight = 60.0;
@@ -31,9 +32,11 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<ChatProvider>();
-      if (provider.activeChatId == null && provider.chats.isNotEmpty) {
-        provider.selectChat(provider.chats.first.id);
-      }
+      provider.fetchSessions().then((_) {
+        if (provider.activeChatId == null && provider.chats.isNotEmpty) {
+          provider.selectChat(provider.chats.first.id);
+        }
+      });
     });
   }
 
@@ -89,13 +92,15 @@ class _ChatScreenState extends State<ChatScreen> {
                   children: [
                     // ── 1. Content (hero or messages) ──────────────────
                     Positioned.fill(
-                      child: hasMessages
-                          ? _ChatContent(
-                              provider: provider,
-                              scrollController: _scrollController,
-                              isWide: isWide,
-                            )
-                          : HeroHeader(isCollapsed: false, isWide: isWide),
+                      child: provider.isLoadingSessions
+                          ? ChatSkeleton(isWide: isWide)
+                          : hasMessages
+                              ? _ChatContent(
+                                  provider: provider,
+                                  scrollController: _scrollController,
+                                  isWide: isWide,
+                                )
+                              : HeroHeader(isCollapsed: false, isWide: isWide),
                     ),
 
                     // ── 2. TOP gradient ──────────────────────────────────────

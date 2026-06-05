@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum MessageType { user, assistant, ideaCard, taskCard, roadmapCard }
+enum MessageType { user, assistant, ideaCard, taskCard, roadmapCard, validationCard }
 
 class Message {
   final String id;
@@ -48,6 +48,12 @@ class Message {
   static Message roadmapCard(Map<String, dynamic> metadata) => Message(
         id: UniqueKey().toString(),
         type: MessageType.roadmapCard,
+        metadata: metadata,
+      );
+
+  static Message validationCard(Map<String, dynamic> metadata) => Message(
+        id: UniqueKey().toString(),
+        type: MessageType.validationCard,
         metadata: metadata,
       );
 }

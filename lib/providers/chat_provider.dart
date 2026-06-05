@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../models/chat.dart';
@@ -10,10 +9,7 @@ import '../utils/network_config.dart';
 class ChatProvider extends ChangeNotifier {
   final String _baseUrl = NetworkConfig.baseUrl;
 
-  final Map<String, String> _headers = {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer mock-token',
-  };
+  // Headers are fetched dynamically before each request
 
   // Sidebar state
   bool _isSidebarOpen = false;
@@ -27,6 +23,10 @@ class ChatProvider extends ChangeNotifier {
   bool _isTyping = false;
   bool get isTyping => _isTyping;
 
+  // Loading state for initial fetch
+  bool _isLoadingSessions = false;
+  bool get isLoadingSessions => _isLoadingSessions;
+
   // Input Controller
   final TextEditingController _inputController = TextEditingController();
   TextEditingController get inputController => _inputController;
@@ -36,8 +36,8 @@ class ChatProvider extends ChangeNotifier {
   List<Chat> get chats => _chats;
 
   ChatProvider() {
-    // Fetch initial chat sessions from the backend
-    fetchSessions();
+    // We intentionally DO NOT fetchSessions() here anymore.
+    // It is called by ChatScreen on mount to avoid unauthenticated network calls.
   }
 
   @override
@@ -114,16 +114,20 @@ class ChatProvider extends ChangeNotifier {
   }
 
   Future<void> fetchSessions() async {
+    _isLoadingSessions = true;
+    notifyListeners();
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/chat/sessions'),
-        headers: _headers,
+        Uri.parse('$_baseUrl/chat/sessions?includeRecent=true'),
+        headers: await NetworkConfig.getHeaders(),
       );
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         if (body['success'] == true && body['data'] != null) {
           final List<dynamic> sessions = body['data']['sessions'] ?? [];
+          final List<dynamic>? recentMessages = body['data']['recentMessages'];
+          
           _chats.clear();
           
           for (final s in sessions) {
@@ -135,15 +139,57 @@ class ChatProvider extends ChangeNotifier {
             _chats.add(chat);
           }
           
-          if (_chats.isNotEmpty && _activeChatId == null) {
-            selectChat(_chats.first.id);
-          } else {
-            notifyListeners();
+          if (_chats.isNotEmpty) {
+            _activeChatId = _chats.first.id;
+            
+            // Parse recent messages if backend provided them
+            if (recentMessages != null && _chats.first.messages.isEmpty) {
+              final chat = _chats.first;
+              for (final m in recentMessages) {
+                final role = m['role'] as String;
+                final text = m['content'] as String;
+                final timestamp = DateTime.parse(m['createdAt'] as String);
+                
+                List<String>? modules;
+                if (m['metadata'] != null && m['metadata']['usedModules'] != null) {
+                  modules = List<String>.from(m['metadata']['usedModules']);
+                }
+
+                if (role == 'user') {
+                  chat.messages.add(Message(
+                    id: m['id'] as String,
+                    type: MessageType.user,
+                    text: text,
+                    timestamp: timestamp,
+                  ));
+                } else {
+                  final metadata = m['metadata'] as Map<String, dynamic>?;
+                  chat.messages.add(Message(
+                    id: m['id'] as String,
+                    type: MessageType.assistant,
+                    text: text,
+                    usedModules: modules,
+                    metadata: metadata,
+                    timestamp: timestamp,
+                  ));
+                  
+                  if (modules != null) {
+                    _appendCardsForModules(chat, modules, metadata);
+                  }
+                }
+              }
+            } else if (_activeChatId == null) {
+               // Fallback if recentMessages is missing
+               await selectChat(_chats.first.id);
+            }
           }
         }
       }
     } catch (e) {
       debugPrint('Error fetching sessions: $e');
+    } finally {
+      _isLoadingSessions = false;
+      notifyListeners();
     }
   }
 
@@ -155,7 +201,7 @@ class ChatProvider extends ChangeNotifier {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/chat/sessions/$chatId/messages'),
-        headers: _headers,
+        headers: await NetworkConfig.getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -213,11 +259,11 @@ class ChatProvider extends ChangeNotifier {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/chat/sessions'),
-        headers: _headers,
+        headers: await NetworkConfig.getHeaders(),
         body: jsonEncode({'title': 'New Chat'}),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final body = jsonDecode(response.body);
         if (body['success'] == true && body['data'] != null) {
           final s = body['data']['session'];
@@ -245,7 +291,7 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  void deleteChat(String chatId) {
+  Future<void> deleteChat(String chatId) async {
     // Delete locally and try backend asynchronously
     _chats.removeWhere((c) => c.id == chatId);
     if (_activeChatId == chatId) {
@@ -254,10 +300,14 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
     
     // Asynchronous backend delete if possible (not strictly required by user, but nice to have)
-    http.delete(
-      Uri.parse('$_baseUrl/chat/sessions/$chatId'),
-      headers: _headers,
-    ).catchError((e) => debugPrint('Error deleting session: $e'));
+    try {
+      await http.delete(
+        Uri.parse('$_baseUrl/chat/sessions/$chatId'),
+        headers: await NetworkConfig.getHeaders(),
+      );
+    } catch (e) {
+      debugPrint('Error deleting session: $e');
+    }
   }
 
   Future<void> sendMessage(String text) async {
@@ -285,7 +335,7 @@ class ChatProvider extends ChangeNotifier {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/chat/sessions/${chat.id}/messages'),
-        headers: _headers,
+        headers: await NetworkConfig.getHeaders(),
         body: jsonEncode({'message': text}),
       );
 
@@ -337,7 +387,7 @@ class ChatProvider extends ChangeNotifier {
       chat.messages.add(Message.ideaCard(meta));
     }
     if (modules.contains('Product Validation')) {
-      chat.messages.add(Message.taskCard(meta));
+      chat.messages.add(Message.validationCard(meta));
     }
     if (modules.contains('E-commerce Roadmap') || modules.contains('Business Plan Generator')) {
       chat.messages.add(Message.roadmapCard(meta));

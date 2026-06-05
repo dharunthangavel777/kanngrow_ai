@@ -1,8 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../app_theme.dart';
 
 class NotificationInboxSheet extends StatelessWidget {
   const NotificationInboxSheet({super.key});
+
+  String _formatTime(String? sentAt) {
+    if (sentAt == null) return 'Unknown time';
+    try {
+      final dt = DateTime.parse(sentAt);
+      final diff = DateTime.now().difference(dt);
+      if (diff.inSeconds < 60) return 'Just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (_) {
+      return 'Recently';
+    }
+  }
+
+  IconData _getIcon(String title) {
+    final t = title.toLowerCase();
+    if (t.contains('tip') || t.contains('growth')) return Icons.lightbulb_outline_rounded;
+    if (t.contains('analysis') || t.contains('competitor')) return Icons.bar_chart_rounded;
+    if (t.contains('memory') || t.contains('engine')) return Icons.memory_rounded;
+    return Icons.notifications_rounded;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,33 +74,80 @@ class NotificationInboxSheet extends StatelessWidget {
             
             // Content
             Flexible(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                shrinkWrap: true,
-                children: [
-                  _NotificationItem(
-                    icon: Icons.lightbulb_outline_rounded,
-                    title: 'Daily Growth Tip',
-                    subtitle: 'Optimize your ad spend by targeting lookalike audiences on Instagram.',
-                    time: 'Just now',
-                    isUnread: true,
-                  ),
-                  _NotificationItem(
-                    icon: Icons.bar_chart_rounded,
-                    title: 'Competitor Analysis Ready',
-                    subtitle: 'We found 3 new competitors in your niche. Tap to view the report.',
-                    time: '2 hours ago',
-                    isUnread: true,
-                  ),
-                  _NotificationItem(
-                    icon: Icons.memory_rounded,
-                    title: 'Memory Engine Updated',
-                    subtitle: 'Added "Eco-friendly packaging" to your business DNA.',
-                    time: 'Yesterday',
-                    isUnread: false,
-                  ),
-                  const SizedBox(height: 24),
-                ],
+              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: FirebaseFirestore.instance.collection('notifications').snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox(
+                      height: 200,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan),
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return SizedBox(
+                      height: 200,
+                      child: Center(
+                        child: Text(
+                          'Error loading notifications: ${snapshot.error}',
+                          style: const TextStyle(color: Colors.white60),
+                        ),
+                      ),
+                    );
+                  }
+
+                  final docs = snapshot.data?.docs ?? [];
+                  
+                  // Filter client-side for type == 'broadcast'
+                  final broadcastDocs = docs.where((doc) {
+                    final data = doc.data();
+                    return data['type'] == 'broadcast';
+                  }).toList();
+
+                  // Sort client-side descending by sentAt
+                  broadcastDocs.sort((a, b) {
+                    final aSentAt = a.data()['sentAt'] as String? ?? '';
+                    final bSentAt = b.data()['sentAt'] as String? ?? '';
+                    return bSentAt.compareTo(aSentAt);
+                  });
+
+                  if (broadcastDocs.isEmpty) {
+                    return const SizedBox(
+                      height: 200,
+                      child: Center(
+                        child: Text(
+                          'No notifications yet.',
+                          style: TextStyle(color: Colors.white60, fontSize: 14),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    shrinkWrap: true,
+                    itemCount: broadcastDocs.length,
+                    itemBuilder: (context, index) {
+                      final doc = broadcastDocs[index];
+                      final data = doc.data();
+                      final title = data['title'] as String? ?? 'Announcement';
+                      final body = data['body'] as String? ?? '';
+                      final sentAt = data['sentAt'] as String?;
+                      
+                      return _NotificationItem(
+                        icon: _getIcon(title),
+                        title: title,
+                        subtitle: body,
+                        time: _formatTime(sentAt),
+                        isUnread: false,
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ],
@@ -130,12 +201,14 @@ class _NotificationItem extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: isUnread ? FontWeight.bold : FontWeight.w500,
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: isUnread ? FontWeight.bold : FontWeight.w500,
+                        ),
                       ),
                     ),
                     if (isUnread)

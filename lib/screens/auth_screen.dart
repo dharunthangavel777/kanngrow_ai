@@ -3,10 +3,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../app_theme.dart';
-import 'setup/dynamic_onboarding_screen.dart';
+import '../widgets/auth_wrapper.dart';
+import '../widgets/skeleton/auth_button_skeleton.dart';
+import '../widgets/skeleton/skeleton_base.dart';
+import 'package:flutter/services.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Auth Screen
@@ -15,41 +18,19 @@ class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key});
 
   void _handleAuth(BuildContext context, String provider) async {
+    final authProvider = context.read<AuthProvider>();
+    
     if (provider == 'Google') {
-      try {
-        final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-        if (googleUser == null) return;
-        
-        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-        final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
-        );
-        
-        await FirebaseAuth.instance.signInWithCredential(credential);
-
-        Navigator.of(context).pushAndRemoveUntil(
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const DynamicOnboardingScreen(),
-            transitionsBuilder: (_, anim, __, child) =>
-                FadeTransition(opacity: anim, child: child),
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
-          (_) => false,
-        );
-      } catch (e) {
-        debugPrint('Google Sign-In Error: $e');
-      }
+      await authProvider.signInWithGoogle(context);
     } else {
-      // Apple sign in placeholder
+      await authProvider.signInAnonymously(context);
+    }
+
+    if (authProvider.user != null) {
+      if (!context.mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const DynamicOnboardingScreen(),
-          transitionsBuilder: (_, anim, __, child) =>
-              FadeTransition(opacity: anim, child: child),
-          transitionDuration: const Duration(milliseconds: 500),
-        ),
-        (_) => false,
+        MaterialPageRoute(builder: (_) => const AuthWrapper()),
+        (route) => false,
       );
     }
   }
@@ -94,18 +75,13 @@ class AuthScreen extends StatelessWidget {
                             Colors.white,
                             BlendMode.srcIn,
                           ),
-                          placeholderBuilder: (_) => const SizedBox(
+                          placeholderBuilder: (_) => SizedBox(
                             height: 220,
                             child: Center(
-                              child: SizedBox(
-                                width: 32,
-                                height: 32,
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    AppColors.lightCyan,
-                                  ),
-                                  strokeWidth: 2,
-                                ),
+                              child: SkeletonContainer(
+                                width: 120,
+                                height: 120,
+                                shape: BoxShape.circle,
                               ),
                             ),
                           ),
@@ -152,13 +128,29 @@ class AuthScreen extends StatelessWidget {
                     const SizedBox(height: 36),
 
                     // ── Auth buttons ─────────────────────────────────────
-                    Column(
+                    Consumer<AuthProvider>(
+                      builder: (context, auth, child) {
+                        // Show error if one exists
+                        if (auth.error != null) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(auth.error!),
+                                backgroundColor: AppColors.danger,
+                              ),
+                            );
+                            auth.clearError();
+                          });
+                        }
+
+                        return Column(
                           children: [
                             // Continue with Google
                             _AuthButton(
                               onTap: () => _handleAuth(context, 'Google'),
                               icon: _GoogleIcon(),
                               label: 'Continue with Google',
+                              isLoading: auth.isLoading,
                               delay: 0,
                             ),
 
@@ -212,6 +204,7 @@ class AuthScreen extends StatelessWidget {
                                 size: 22,
                               ),
                               label: 'Continue with Apple',
+                              isLoading: false,
                               delay: 80,
                               dark: true,
                             ),
@@ -219,7 +212,9 @@ class AuthScreen extends StatelessWidget {
                         )
                         .animate(delay: 500.ms)
                         .fadeIn(duration: 500.ms)
-                        .slideY(begin: 0.1, end: 0, duration: 400.ms),
+                        .slideY(begin: 0.1, end: 0, duration: 400.ms);
+                      }
+                    ),
 
                     const SizedBox(height: 24),
 
@@ -300,12 +295,14 @@ class _AuthButton extends StatefulWidget {
   final String label;
   final bool dark;
   final int delay;
+  final bool isLoading;
   const _AuthButton({
     required this.onTap,
     required this.icon,
     required this.label,
     this.dark = false,
     this.delay = 0,
+    this.isLoading = false,
   });
 
   @override
@@ -321,6 +318,7 @@ class _AuthButtonState extends State<_AuthButton> {
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
         setState(() => _pressed = false);
+        HapticFeedback.lightImpact();
         widget.onTap();
       },
       onTapCancel: () => setState(() => _pressed = false),
@@ -346,21 +344,23 @@ class _AuthButtonState extends State<_AuthButton> {
             ),
           ],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            widget.icon,
-            const SizedBox(width: 10),
-            Text(
-              widget.label,
-              style: TextStyle(
-                color: widget.dark ? Colors.white : Colors.black,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+        child: widget.isLoading
+            ? const AuthButtonSkeleton()
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  widget.icon,
+                  const SizedBox(width: 10),
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      color: widget.dark ? Colors.white : Colors.black,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }

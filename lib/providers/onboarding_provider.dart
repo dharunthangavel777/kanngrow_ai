@@ -78,10 +78,7 @@ class OnboardingProvider extends ChangeNotifier {
       
       final response = await http.post(
         Uri.parse('$_baseUrl/onboarding/next-question'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
         body: jsonEncode({
           'answeredQuestions': _answers,
           'questionsAsked': dynamicQuestionsAsked,
@@ -134,10 +131,7 @@ class OnboardingProvider extends ChangeNotifier {
     try {
       await http.post(
         Uri.parse('$_baseUrl/onboarding/complete'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
         body: jsonEncode({
           'answers': _answers,
         }),
@@ -146,10 +140,7 @@ class OnboardingProvider extends ChangeNotifier {
       // Also initialize a profile on the backend using the responses
       await http.post(
         Uri.parse('$_baseUrl/profile'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
         body: jsonEncode({
           'storeName': _answers['Store Name'] ?? 'My E-commerce Store',
           'industry': _answers['E-Commerce Category'] ?? 'General E-commerce',

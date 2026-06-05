@@ -30,10 +30,7 @@ class _StartupIdeaCardState extends State<StartupIdeaCard> {
     try {
       final response = await http.post(
         Uri.parse('${NetworkConfig.baseUrl}/ecommerce/ideas/save'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
         body: jsonEncode({
           'id': idea['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
           'name': idea['name'] ?? 'Product Idea',
@@ -77,24 +74,31 @@ class _StartupIdeaCardState extends State<StartupIdeaCard> {
 
   @override
   Widget build(BuildContext context) {
-    final List<dynamic> rawList = widget.metadata['ideas'] ?? [];
+    final List<dynamic> displayIdeas = widget.metadata['ideas'] ?? [];
     
-    // If empty, fallback to mock data
-    final displayIdeas = rawList.isNotEmpty
-        ? rawList
-        : [
-            {
-              'id': 'mock-idea-1',
-              'name': 'AI Pet Portrait Canvas',
-              'niche': 'Custom Pet Artwork',
-              'margin': '87%',
-              'competition': 'Low',
-              'sourcingPlatform': 'Dropshipping via Printful',
-              'validationStrategy': 'Shopify landing page + TikTok organic video ads',
-              'uniqueAngle': 'Renaissance-style canvas paintings generated via custom diffusion model',
-              'viabilityScore': 87
-            }
-          ];
+    if (displayIdeas.isEmpty) {
+      return Container(
+        height: 140,
+        alignment: Alignment.center,
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderDark, width: 1),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lightbulb_outline_rounded, color: Colors.white24, size: 32),
+            SizedBox(height: 12),
+            Text(
+              'No product suggestions generated yet.',
+              style: TextStyle(color: Colors.white54, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
 
     return SizedBox(
       height: 380,

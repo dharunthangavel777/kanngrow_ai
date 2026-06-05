@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../app_theme.dart';
+import '../widgets/skeleton/onboarding_skeleton.dart';
 import 'auth_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -271,16 +272,7 @@ class _OnboardPage extends StatelessWidget {
                       ),
                       placeholderBuilder: (BuildContext context) =>
                           const Center(
-                            child: SizedBox(
-                              width: 40,
-                              height: 40,
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                                strokeWidth: 2,
-                              ),
-                            ),
+                            child: OnboardingSkeleton(),
                           ),
                     ),
                   ],

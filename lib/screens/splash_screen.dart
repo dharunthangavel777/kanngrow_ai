@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../app_theme.dart';
+import '../widgets/skeleton/app_startup_skeleton.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Splash Screen — auto-advances after animation completes
 // ─────────────────────────────────────────────────────────────────────────────
 class SplashScreen extends StatefulWidget {
-  final Widget next;
-  const SplashScreen({super.key, required this.next});
+  final Widget? next;
+  const SplashScreen({super.key, this.next});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -17,18 +18,20 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Navigate after splash animation completes (2.8s)
-    Future.delayed(const Duration(milliseconds: 2800), () {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => widget.next,
-          transitionsBuilder: (_, anim, __, child) =>
-              FadeTransition(opacity: anim, child: child),
-          transitionDuration: const Duration(milliseconds: 500),
-        ),
-      );
-    });
+    // Navigate immediately to optimize app load time if a next widget is provided
+    if (widget.next != null) {
+      Future.delayed(Duration.zero, () {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => widget.next!,
+            transitionsBuilder: (_, anim, __, child) =>
+                FadeTransition(opacity: anim, child: child),
+            transitionDuration: const Duration(milliseconds: 500),
+          ),
+        );
+      });
+    }
   }
 
   @override
@@ -93,24 +96,13 @@ class _SplashScreenState extends State<SplashScreen> {
                       letterSpacing: 0.2))
                   .animate(delay: 500.ms)
                   .fadeIn(duration: 600.ms),
-            ],
-          ),
-
-          // Bottom loading bar
-          Positioned(
-            bottom: 60, left: 0, right: 0,
-            child: Center(
-              child: SizedBox(
-                width: 40,
-                child: LinearProgressIndicator(
-                  backgroundColor: Colors.white.withValues(alpha: 0.08),
-                  valueColor: const AlwaysStoppedAnimation(AppColors.lightCyan),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              )
+              
+              const SizedBox(height: 48),
+              
+              const AppStartupSkeleton()
                   .animate(delay: 700.ms)
                   .fadeIn(duration: 400.ms),
-            ),
+            ],
           ),
         ],
       ),

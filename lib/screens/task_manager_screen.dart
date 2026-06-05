@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../widgets/chat/chat_header.dart';
+import '../widgets/skeleton/task_skeleton.dart';
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -28,9 +29,7 @@ class _TaskManagerScreenState extends State<TaskManagerScreen> {
     try {
       final response = await http.get(
         Uri.parse('${NetworkConfig.baseUrl}/workspace?type=roadmap'),
-        headers: {
-          'Authorization': 'Bearer mock-token',
-        },
+        headers: await NetworkConfig.getHeaders(),
       );
 
       if (response.statusCode == 200) {
@@ -99,9 +98,7 @@ class _TaskManagerScreenState extends State<TaskManagerScreen> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan)),
-                    )
+                  ? const TaskSkeleton()
                   : _tasks.isEmpty
                       ? _buildEmptyState()
                       : ListView.separated(
