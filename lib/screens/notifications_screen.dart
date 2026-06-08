@@ -9,7 +9,8 @@ import '../widgets/chat/chat_header.dart';
 import '../widgets/notifications/hot_news_card.dart';
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+  final bool hideBackButton;
+  const NotificationsScreen({super.key, this.hideBackButton = false});
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -143,10 +144,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           children: [
             ChatHeader(
               isWide: false,
-              leading: HeaderBtn(
-                onTap: () => Navigator.pop(context),
-                child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-              ),
+              leading: widget.hideBackButton
+                  ? const SizedBox(width: 44)
+                  : HeaderBtn(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+                    ),
               title: const Text(
                 'Notifications',
                 style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
@@ -178,50 +181,56 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
                   final docs = snapshot.data!.docs;
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    itemCount: docs.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final data = docs[index].data();
-                      final notifId = docs[index].id;
-                      final type = data['type'] as String? ?? 'general';
-                      final title = data['title'] as String? ?? 'Notification';
-                      final body = data['body'] as String? ?? '';
-                      final isRead = data['isRead'] as bool? ?? false;
-                      final createdAt = data['createdAt'] as String?;
+                  return Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 800),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        itemCount: docs.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final data = docs[index].data();
+                          final notifId = docs[index].id;
+                          final type = data['type'] as String? ?? 'general';
+                          final title = data['title'] as String? ?? 'Notification';
+                          final body = data['body'] as String? ?? '';
+                          final isRead = data['isRead'] as bool? ?? false;
+                          final createdAt = data['createdAt'] as String?;
 
-                      // ── Hot News gets its own distinct card ──────────────
-                      if (type == 'hot_news') {
-                        final rawItems = data['items'];
-                        final items = rawItems is List
-                            ? rawItems
-                                .whereType<Map<String, dynamic>>()
-                                .toList()
-                            : <Map<String, dynamic>>[];
-                        final hook = data['hook'] as String? ?? title;
-                        final tier = data['tier'] as String? ?? 'standard';
+                          // ── Hot News gets its own distinct card ──────────────
+                          if (type == 'hot_news') {
+                            final rawItems = data['items'];
+                            final items = rawItems is List
+                                ? rawItems
+                                    .whereType<Map<String, dynamic>>()
+                                    .toList()
+                                : <Map<String, dynamic>>[];
+                            final hook = data['hook'] as String? ?? title;
+                            final tier = data['tier'] as String? ?? 'standard';
 
-                        return HotNewsCard(
-                          notifId: notifId,
-                          hook: hook,
-                          items: items,
-                          tier: tier,
-                          isRead: isRead,
-                          timeAgo: _timeAgo(createdAt),
-                          onTap: () => _markOneRead(notifId),
-                        );
-                      }
+                            return HotNewsCard(
+                              notifId: notifId,
+                              hook: hook,
+                              items: items,
+                              tier: tier,
+                              isRead: isRead,
+                              timeAgo: _timeAgo(createdAt),
+                              onTap: () => _markOneRead(notifId),
+                            );
+                          }
 
-                      return _buildNotificationCard(
-                        notifId: notifId,
-                        type: type,
-                        title: title,
-                        body: body,
-                        isRead: isRead,
-                        timeAgo: _timeAgo(createdAt),
-                      );
-                    },
+                          return _buildNotificationCard(
+                            notifId: notifId,
+                            type: type,
+                            title: title,
+                            body: body,
+                            isRead: isRead,
+                            timeAgo: _timeAgo(createdAt),
+                          );
+                        },
+                      ),
+                    ),
                   );
                 },
               ),

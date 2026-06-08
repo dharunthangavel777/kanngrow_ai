@@ -116,13 +116,18 @@ class _WorkspaceSavedProductsScreenState extends State<WorkspaceSavedProductsScr
                   ? const WorkspaceSkeleton()
                   : _ideas.isEmpty
                       ? _buildEmptyState()
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          itemCount: _ideas.length,
-                          itemBuilder: (context, idx) {
-                            final idea = Map<String, dynamic>.from(_ideas[idx]);
-                            return _buildIdeaItem(idea, idx);
-                          },
+                      : Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 800),
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              itemCount: _ideas.length,
+                              itemBuilder: (context, idx) {
+                                final idea = Map<String, dynamic>.from(_ideas[idx]);
+                                return _buildIdeaItem(idea, idx);
+                              },
+                            ),
+                          ),
                         ),
             ),
           ],
@@ -322,13 +327,18 @@ class _WorkspaceRoadmapsScreenState extends State<WorkspaceRoadmapsScreen> {
                   ? const WorkspaceSkeleton()
                   : _roadmaps.isEmpty
                       ? _buildEmptyState()
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          itemCount: _roadmaps.length,
-                          itemBuilder: (context, idx) {
-                            final roadmap = Map<String, dynamic>.from(_roadmaps[idx]);
-                            return _buildRoadmapItem(roadmap);
-                          },
+                      : Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 800),
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              itemCount: _roadmaps.length,
+                              itemBuilder: (context, idx) {
+                                final roadmap = Map<String, dynamic>.from(_roadmaps[idx]);
+                                return _buildRoadmapItem(roadmap);
+                              },
+                            ),
+                          ),
                         ),
             ),
           ],
@@ -522,13 +532,18 @@ class _WorkspaceBusinessPlansScreenState extends State<WorkspaceBusinessPlansScr
                   ? const WorkspaceSkeleton()
                   : _plans.isEmpty
                       ? _buildEmptyState()
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          itemCount: _plans.length,
-                          itemBuilder: (context, idx) {
-                            final plan = Map<String, dynamic>.from(_plans[idx]);
-                            return _buildPlanItem(plan);
-                          },
+                      : Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 800),
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              itemCount: _plans.length,
+                              itemBuilder: (context, idx) {
+                                final plan = Map<String, dynamic>.from(_plans[idx]);
+                                return _buildPlanItem(plan);
+                              },
+                            ),
+                          ),
                         ),
             ),
           ],
@@ -751,13 +766,18 @@ class _WorkspaceMarketIntelligenceScreenState extends State<WorkspaceMarketIntel
                   ? const WorkspaceSkeleton()
                   : _alerts.isEmpty
                       ? _buildEmptyState()
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          itemCount: _alerts.length,
-                          itemBuilder: (context, idx) {
-                            final alert = _alerts[idx];
-                            return _buildAlertCard(alert);
-                          },
+                      : Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 800),
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              itemCount: _alerts.length,
+                              itemBuilder: (context, idx) {
+                                final alert = _alerts[idx];
+                                return _buildAlertCard(alert);
+                              },
+                            ),
+                          ),
                         ),
             ),
           ],

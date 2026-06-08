@@ -33,54 +33,61 @@ class WorkspaceScreen extends StatelessWidget {
               trailing: const SizedBox(width: 44),
             ),
             Expanded(
-              child: GridView.count(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.1,
-                children: [
-                  _buildFolderCard(
-                    context,
-                    title: 'Saved Products',
-                    subtitle: 'View Ideas',
-                    icon: Icons.lightbulb_outline_rounded,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WorkspaceSavedProductsScreen()),
-                    ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1000),
+                  child: GridView.count(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                    crossAxisCount: MediaQuery.of(context).size.width >= 1200
+                        ? 4
+                        : (MediaQuery.of(context).size.width >= 768 ? 3 : 2),
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.1,
+                    children: [
+                      _buildFolderCard(
+                        context,
+                        title: 'Saved Products',
+                        subtitle: 'View Ideas',
+                        icon: Icons.lightbulb_outline_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const WorkspaceSavedProductsScreen()),
+                        ),
+                      ),
+                      _buildFolderCard(
+                        context,
+                        title: 'Roadmaps & Tasks',
+                        subtitle: 'View Active',
+                        icon: Icons.map_outlined,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const WorkspaceRoadmapsScreen()),
+                        ),
+                      ),
+                      _buildFolderCard(
+                        context,
+                        title: 'Market Intelligence',
+                        subtitle: 'View Reports',
+                        icon: Icons.travel_explore_rounded,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const WorkspaceMarketIntelligenceScreen()),
+                        ),
+                      ),
+                      _buildFolderCard(
+                        context,
+                        title: 'Business Plans',
+                        subtitle: 'View Drafts',
+                        icon: Icons.description_outlined,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const WorkspaceBusinessPlansScreen()),
+                        ),
+                      ),
+                    ],
                   ),
-                  _buildFolderCard(
-                    context,
-                    title: 'Roadmaps & Tasks',
-                    subtitle: 'View Active',
-                    icon: Icons.map_outlined,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WorkspaceRoadmapsScreen()),
-                    ),
-                  ),
-                  _buildFolderCard(
-                    context,
-                    title: 'Market Intelligence',
-                    subtitle: 'View Reports',
-                    icon: Icons.travel_explore_rounded,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WorkspaceMarketIntelligenceScreen()),
-                    ),
-                  ),
-                  _buildFolderCard(
-                    context,
-                    title: 'Business Plans',
-                    subtitle: 'View Drafts',
-                    icon: Icons.description_outlined,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WorkspaceBusinessPlansScreen()),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ],

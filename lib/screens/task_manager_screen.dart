@@ -101,14 +101,19 @@ class _TaskManagerScreenState extends State<TaskManagerScreen> {
                   ? const TaskSkeleton()
                   : _tasks.isEmpty
                       ? _buildEmptyState()
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _tasks.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final task = _tasks[index];
-                            return _buildTaskItem(task);
-                          },
+                      : Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 800),
+                            child: ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _tasks.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 12),
+                              itemBuilder: (context, index) {
+                                final task = _tasks[index];
+                                return _buildTaskItem(task);
+                              },
+                            ),
+                          ),
                         ),
             ),
           ],

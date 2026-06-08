@@ -127,21 +127,27 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             Expanded(
               child: _loading
                   ? const DashboardSkeleton()
-                  : ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                      children: [
-                        _buildHealthScoreCard(progress),
-                        const SizedBox(height: 20),
-                        _buildMarketAlertsBanner(),
-                        _buildSectionTitle('Current Stage'),
-                        const SizedBox(height: 12),
-                        _buildCurrentStageCard(phaseTitle, phaseDesc, progress, industry),
-                        const SizedBox(height: 24),
-                        _buildSectionTitle('Recent Activities & Insights'),
-                        const SizedBox(height: 12),
-                        _buildActivityFeed(stageRaw),
-                        const SizedBox(height: 40),
-                      ],
+                  : Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 900),
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                          children: [
+                            _buildHealthScoreCard(progress),
+                            const SizedBox(height: 20),
+                            _buildMarketAlertsBanner(),
+                            _buildSectionTitle('Current Stage'),
+                            const SizedBox(height: 12),
+                            _buildCurrentStageCard(phaseTitle, phaseDesc, progress, industry),
+                            const SizedBox(height: 24),
+                            _buildSectionTitle('Recent Activities & Insights'),
+                            const SizedBox(height: 12),
+                            _buildActivityFeed(stageRaw),
+                            const SizedBox(height: 40),
+                          ],
+                        ),
+                      ),
                     ),
             ),
           ],

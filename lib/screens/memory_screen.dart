@@ -6,7 +6,8 @@ import '../utils/network_config.dart';
 import '../widgets/chat/chat_header.dart';
 
 class MemoryScreen extends StatefulWidget {
-  const MemoryScreen({super.key});
+  final bool hideBackButton;
+  const MemoryScreen({super.key, this.hideBackButton = false});
 
   @override
   State<MemoryScreen> createState() => _MemoryScreenState();
@@ -106,11 +107,13 @@ class _MemoryScreenState extends State<MemoryScreen> {
               bottom: false,
               child: ChatHeader(
                 isWide: isWide,
-                leading: HeaderBtn(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 18),
-                ),
+                leading: widget.hideBackButton
+                    ? const SizedBox(width: 44)
+                    : HeaderBtn(
+                        onTap: () => Navigator.pop(context),
+                        child: const Icon(Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white, size: 18),
+                      ),
                 title: const Text(
                   "Memory Timeline",
                   style: TextStyle(
@@ -174,90 +177,96 @@ class _MemoryScreenState extends State<MemoryScreen> {
 
     const double headerHeight = 60.0; // Retrieve the const locally or make sure it matches the parent
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, headerHeight + 10, 16, 32),
-      children: [
-        // ── 1. Long-term User Story ──────────────────────────────────
-        _SectionHeader(
-          icon: Icons.history_edu_rounded,
-          title: "My Journey Story",
-          subtitle: "AI-summarized narrative of your entrepreneurial path",
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            userStory,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              height: 1.5,
-              fontStyle: FontStyle.italic,
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, headerHeight + 10, 16, 32),
+          children: [
+            // ── 1. Long-term User Story ──────────────────────────────────
+            _SectionHeader(
+              icon: Icons.history_edu_rounded,
+              title: "My Journey Story",
+              subtitle: "AI-summarized narrative of your entrepreneurial path",
             ),
-          ),
-        ),
-        const SizedBox(height: 28),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surfaceDark,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                userStory,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  height: 1.5,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
 
-        // ── 2. Key Decisions & Goals ─────────────────────────────────
-        if (keyDecisions.isNotEmpty || currentGoals.isNotEmpty) ...[
-          _SectionHeader(
-            icon: Icons.bookmark_added_outlined,
-            title: "Decisions & Milestones",
-            subtitle: "Strategic choices and targets you have set",
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (keyDecisions.isNotEmpty)
-                Expanded(
-                  child: _MiniCard(
-                    title: "Decided Ideas",
-                    items: keyDecisions,
-                    icon: Icons.check_circle_outline_rounded,
-                    iconColor: AppColors.statusOnline,
-                  ),
-                ),
-              if (keyDecisions.isNotEmpty && currentGoals.isNotEmpty)
-                const SizedBox(width: 12),
-              if (currentGoals.isNotEmpty)
-                Expanded(
-                  child: _MiniCard(
-                    title: "Active Goals",
-                    items: currentGoals,
-                    icon: Icons.flag_outlined,
-                    iconColor: AppColors.lightCyan,
-                  ),
-                ),
+            // ── 2. Key Decisions & Goals ─────────────────────────────────
+            if (keyDecisions.isNotEmpty || currentGoals.isNotEmpty) ...[
+              _SectionHeader(
+                icon: Icons.bookmark_added_outlined,
+                title: "Decisions & Milestones",
+                subtitle: "Strategic choices and targets you have set",
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (keyDecisions.isNotEmpty)
+                    Expanded(
+                      child: _MiniCard(
+                        title: "Decided Ideas",
+                        items: keyDecisions,
+                        icon: Icons.check_circle_outline_rounded,
+                        iconColor: AppColors.statusOnline,
+                      ),
+                    ),
+                  if (keyDecisions.isNotEmpty && currentGoals.isNotEmpty)
+                    const SizedBox(width: 12),
+                  if (currentGoals.isNotEmpty)
+                    Expanded(
+                      child: _MiniCard(
+                        title: "Active Goals",
+                        items: currentGoals,
+                        icon: Icons.flag_outlined,
+                        iconColor: AppColors.lightCyan,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 28),
             ],
-          ),
-          const SizedBox(height: 28),
-        ],
 
-        // ── 3. Working Memory Timeline ──────────────────────────────
-        _SectionHeader(
-          icon: Icons.timeline_rounded,
-          title: "Working Memory Timeline",
-          subtitle: "Raw facts and preferences detected in the last 30 days",
+            // ── 3. Working Memory Timeline ──────────────────────────────
+            _SectionHeader(
+              icon: Icons.timeline_rounded,
+              title: "Working Memory Timeline",
+              subtitle: "Raw facts and preferences detected in the last 30 days",
+            ),
+            const SizedBox(height: 16),
+            workingList.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Text(
+                        "No working facts stored yet. Continue talking to seed memory.",
+                        style: TextStyle(color: AppColors.textLightGray, fontSize: 13),
+                      ),
+                    ),
+                  )
+                : _buildWorkingTimeline(workingList),
+          ],
         ),
-        const SizedBox(height: 16),
-        workingList.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(
-                  child: Text(
-                    "No working facts stored yet. Continue talking to seed memory.",
-                    style: TextStyle(color: AppColors.textLightGray, fontSize: 13),
-                  ),
-                ),
-              )
-            : _buildWorkingTimeline(workingList),
-      ],
+      ),
     );
   }
 

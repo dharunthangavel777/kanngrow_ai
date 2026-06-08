@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:kangrow_ai/sheets/app_sheets.dart';
+import '../../screens/app_settings_screens.dart';
 import 'package:provider/provider.dart';
 import '../../app_theme.dart';
 import '../../models/chat.dart';
@@ -516,13 +516,19 @@ class _SidebarFooter extends StatelessWidget {
               _FooterRow(
                 icon: Icons.shield_outlined,
                 label: 'Privacy Policy',
-                onTap: () => _openSheet(context, const PrivacyPolicySheet()),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+                ),
               ),
               _FooterDivider(),
               _FooterRow(
                 icon: Icons.lock_outline_rounded,
                 label: 'Security',
-                onTap: () => _openSheet(context, const SecuritySheet()),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SecurityScreen()),
+                ),
               ),
               _FooterDivider(),
               _FooterRow(
@@ -530,21 +536,15 @@ class _SidebarFooter extends StatelessWidget {
                 label: 'Upgrade to Pro',
                 iconColor: AppColors.lightCyan,
                 labelColor: AppColors.lightCyan,
-                onTap: () => _openSheet(context, const PlanSheet()),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PlanScreen()),
+                ),
               ),
             ],
           ),
         ],
       ),
-    );
-  }
-
-  void _openSheet(BuildContext context, Widget sheet) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => sheet,
     );
   }
 }
