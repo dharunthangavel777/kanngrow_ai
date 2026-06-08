@@ -193,18 +193,24 @@ class _ChatContent extends StatelessWidget {
     final messages = provider.activeMessages;
     final itemCount = messages.length + (provider.isTyping ? 1 : 0);
 
-    return ListView.builder(
-      controller: scrollController,
-      // Top padding clears the header + gradient, bottom clears the input bar
-      padding: const EdgeInsets.fromLTRB(
-          16, _kHeaderHeight + 64, 16, _kInputBarHeight),
-      itemCount: itemCount,
-      itemBuilder: (context, index) {
-        if (index == messages.length && provider.isTyping) {
-          return const TypingIndicator();
-        }
-        return MessageBubble(message: messages[index], index: index);
-      },
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 850),
+        child: ListView.builder(
+          controller: scrollController,
+          // Top padding clears the header + gradient, bottom clears the input bar
+          padding: const EdgeInsets.fromLTRB(
+              16, _kHeaderHeight + 64, 16, _kInputBarHeight),
+          itemCount: itemCount,
+          itemBuilder: (context, index) {
+            if (index == messages.length && provider.isTyping) {
+              return const TypingIndicator();
+            }
+            return MessageBubble(message: messages[index], index: index);
+          },
+        ),
+      ),
     );
   }
 }

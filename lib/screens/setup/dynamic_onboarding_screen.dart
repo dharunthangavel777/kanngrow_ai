@@ -113,99 +113,105 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen> {
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       body: SafeArea(
-        child: Consumer<OnboardingProvider>(
-          builder: (context, provider, child) {
-            final totalPages = provider.questions.length;
-            final isGenerating = provider.isGenerating;
+        child: Align(
+          alignment: Alignment.center,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Consumer<OnboardingProvider>(
+              builder: (context, provider, child) {
+                final totalPages = provider.questions.length;
+                final isGenerating = provider.isGenerating;
 
-            return Stack(
-              children: [
-                Column(
+                return Stack(
                   children: [
-                    // Progress Bar & Header
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
-                      child: Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () => _previousPage(provider),
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.05),
-                                shape: BoxShape.circle,
+                    Column(
+                      children: [
+                        // Progress Bar & Header
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
+                          child: Row(
+                            children: [
+                              GestureDetector(
+                                onTap: () => _previousPage(provider),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.05),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+                                ),
                               ),
-                              child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: totalPages > 0 ? (_currentIndex + 1) / totalPages : 0,
-                                backgroundColor: Colors.white.withValues(alpha: 0.1),
-                                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.lightCyan),
-                                minHeight: 6,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: totalPages > 0 ? (_currentIndex + 1) / totalPages : 0,
+                                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.lightCyan),
+                                    minHeight: 6,
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 16),
+                              Text(
+                                '${_currentIndex + 1}/$totalPages',
+                                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 16),
-                          Text(
-                            '${_currentIndex + 1}/$totalPages',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
+                        ),
+                        
+                        Expanded(
+                          child: PageView.builder(
+                            controller: _pageController,
+                            physics: const NeverScrollableScrollPhysics(),
+                            onPageChanged: (index) => _onPageChanged(index, provider),
+                            itemCount: provider.questions.length,
+                            itemBuilder: (context, index) {
+                              final question = provider.questions[index];
+                              return _buildStep(provider, question);
+                            },
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                     
-                    Expanded(
-                      child: PageView.builder(
-                        controller: _pageController,
-                        physics: const NeverScrollableScrollPhysics(),
-                        onPageChanged: (index) => _onPageChanged(index, provider),
-                        itemCount: provider.questions.length,
-                        itemBuilder: (context, index) {
-                          final question = provider.questions[index];
-                          return _buildStep(provider, question);
-                        },
-                      ),
-                    ),
+                    if (isGenerating)
+                      Container(
+                        color: AppColors.bgDark.withValues(alpha: 0.8),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const OnboardingSkeleton().animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
+                              const SizedBox(height: 24),
+                              const Text(
+                                'Analyzing your profile...',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0),
+                              const SizedBox(height: 8),
+                              Text(
+                                'AI is generating personalized follow-up questions',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  fontSize: 14,
+                                ),
+                              ).animate().fadeIn(delay: 400.ms),
+                            ],
+                          ),
+                        ),
+                      ).animate().fadeIn(duration: 300.ms),
                   ],
-                ),
-                
-                if (isGenerating)
-                  Container(
-                    color: AppColors.bgDark.withValues(alpha: 0.8),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const OnboardingSkeleton().animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
-                          const SizedBox(height: 24),
-                          const Text(
-                            'Analyzing your profile...',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0),
-                          const SizedBox(height: 8),
-                          Text(
-                            'AI is generating personalized follow-up questions',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
-                              fontSize: 14,
-                            ),
-                          ).animate().fadeIn(delay: 400.ms),
-                        ],
-                      ),
-                    ),
-                  ).animate().fadeIn(duration: 300.ms),
-              ],
-            );
-          },
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
