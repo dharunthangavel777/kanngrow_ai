@@ -180,6 +180,63 @@ class _MessageBubbleState extends State<MessageBubble> {
         continue;
       }
 
+      // ─── IMAGE MARKDOWN PARSER ───
+      final imageMatch = RegExp(r'!\[(.*?)\]\((.*?)\)').firstMatch(trimmedLine);
+      if (imageMatch != null) {
+        final alt = imageMatch.group(1) ?? '';
+        final imageUrl = imageMatch.group(2) ?? '';
+        if (imageUrl.isNotEmpty) {
+          blocks.add(Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        height: 150,
+                        width: double.infinity,
+                        color: Colors.white.withOpacity(0.05),
+                        child: const Center(
+                          child: CircularProgressIndicator(color: AppColors.lightCyan),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 100,
+                        width: double.infinity,
+                        color: Colors.white.withOpacity(0.05),
+                        child: const Center(
+                          child: Icon(Icons.broken_image_rounded, color: Colors.white38),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                if (alt.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    alt,
+                    style: defaultStyle.copyWith(
+                      fontSize: 11,
+                      color: Colors.white54,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ));
+          continue;
+        }
+      }
+
       // ─── SMART EXPANDABLE SECTIONS PARSER ───
       if (trimmedLine.startsWith('+++')) {
         if (!isInsideExpand) {
