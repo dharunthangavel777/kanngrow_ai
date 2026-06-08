@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../app_theme.dart';
 import '../utils/network_config.dart';
 import '../widgets/chat/chat_header.dart';
+import '../widgets/notifications/hot_news_card.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -72,6 +73,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Icons.campaign_rounded;
       case 'market_alert':
         return Icons.trending_up_rounded;
+      case 'hot_news':
+        return Icons.local_fire_department_rounded;
+      case 'welcome':
+        return Icons.waving_hand_rounded;
+      case 'idea_generated':
+        return Icons.lightbulb_rounded;
+      case 'idea_validated':
+        return Icons.verified_rounded;
+      case 'business_plan':
+        return Icons.description_rounded;
+      case 'subscription_warning':
+        return Icons.access_time_rounded;
+      case 'payment_failed':
+        return Icons.error_rounded;
       default:
         return Icons.notifications_rounded;
     }
@@ -85,6 +100,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Colors.amber;
       case 'market_alert':
         return Colors.greenAccent;
+      case 'hot_news':
+        return const Color(0xFFFF6B00);
+      case 'welcome':
+        return const Color(0xFFA78BFA);
+      case 'idea_generated':
+        return const Color(0xFFFBBF24);
+      case 'idea_validated':
+        return const Color(0xFF34D399);
+      case 'business_plan':
+        return const Color(0xFF60A5FA);
+      case 'subscription_warning':
+        return const Color(0xFFF97316);
+      case 'payment_failed':
+        return const Color(0xFFEF4444);
       default:
         return Colors.white54;
     }
@@ -161,6 +190,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       final body = data['body'] as String? ?? '';
                       final isRead = data['isRead'] as bool? ?? false;
                       final createdAt = data['createdAt'] as String?;
+
+                      // ── Hot News gets its own distinct card ──────────────
+                      if (type == 'hot_news') {
+                        final rawItems = data['items'];
+                        final items = rawItems is List
+                            ? rawItems
+                                .whereType<Map<String, dynamic>>()
+                                .toList()
+                            : <Map<String, dynamic>>[];
+                        final hook = data['hook'] as String? ?? title;
+                        final tier = data['tier'] as String? ?? 'standard';
+
+                        return HotNewsCard(
+                          notifId: notifId,
+                          hook: hook,
+                          items: items,
+                          tier: tier,
+                          isRead: isRead,
+                          timeAgo: _timeAgo(createdAt),
+                          onTap: () => _markOneRead(notifId),
+                        );
+                      }
 
                       return _buildNotificationCard(
                         notifId: notifId,

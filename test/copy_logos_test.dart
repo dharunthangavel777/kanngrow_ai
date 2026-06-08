@@ -1,1 +1,7 @@
-// Temporary logo copy test. Cleared.
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('Dummy test', () {
+    expect(true, true);
+  });
+}

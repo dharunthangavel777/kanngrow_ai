@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../utils/network_config.dart';
 
 class AuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    serverClientId: '255124081047-ipfov9s8mgmvqdl9e2fp88bh4pnt9ca9.apps.googleusercontent.com',
+    clientId: kIsWeb ? '255124081047-ipfov9s8mgmvqdl9e2fp88bh4pnt9ca9.apps.googleusercontent.com' : null,
+    serverClientId: kIsWeb ? null : '255124081047-ipfov9s8mgmvqdl9e2fp88bh4pnt9ca9.apps.googleusercontent.com',
   );
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -48,49 +50,92 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        // User aborted sign-in
-        _setLoading(false);
-        return;
-      }
+      if (kIsWeb) {
+        // Native Web OAuth via Firebase Auth Popup (bypasses Google Sign-In web plugin limitations)
+        final googleProvider = GoogleAuthProvider();
+        final UserCredential userCredential = await _auth.signInWithPopup(googleProvider);
+        final user = userCredential.user;
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final idToken = googleAuth.idToken;
+        if (user == null) {
+          _error = 'Failed to retrieve user from Google Sign-In.';
+          _setLoading(false);
+          notifyListeners();
+          return;
+        }
 
-      if (idToken == null) {
-        _error = 'Failed to retrieve Google token.';
-        _setLoading(false);
-        return;
-      }
+        final idToken = await user.getIdToken();
+        if (idToken == null) {
+          _error = 'Failed to retrieve Firebase token.';
+          _setLoading(false);
+          notifyListeners();
+          return;
+        }
 
-      // Hybrid Auth: Send token to backend to verify and mint custom token
-      final response = await http.post(
-        Uri.parse('${NetworkConfig.baseUrl}/auth/google'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'idToken': idToken}),
-      );
+        // Sync with backend using the Firebase ID token (like Apple/Anonymous flows)
+        final response = await http.post(
+          Uri.parse('${NetworkConfig.baseUrl}/auth/verify'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+        );
 
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        if (body['success'] == true && body['data'] != null) {
-          final customToken = body['data']['customToken'];
-
-          // Sign in to Firebase with the Custom Token
-          final userCredential = await _auth.signInWithCustomToken(customToken);
-
-          if (userCredential.user != null) {
-            // Fire-and-forget logging to avoid blocking the UI
-            _logAuthEvent(userCredential.user!, 'LOGIN');
+        if (response.statusCode == 200) {
+          final body = jsonDecode(response.body);
+          if (body['success'] == true) {
+            _logAuthEvent(user, 'LOGIN');
+          } else {
+            _error = 'Backend authentication failed.';
           }
         } else {
-          _error = 'Backend authentication failed.';
+          _error = 'Server error during authentication.';
+          debugPrint('Backend Auth Error: ${response.body}');
         }
       } else {
-        _error = 'Server error during authentication.';
-        debugPrint('Backend Auth Error: ${response.body}');
-      }
+        // Mobile Flow using google_sign_in package
+        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) {
+          // User aborted sign-in
+          _setLoading(false);
+          return;
+        }
 
+        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final idToken = googleAuth.idToken;
+
+        if (idToken == null) {
+          _error = 'Failed to retrieve Google token.';
+          _setLoading(false);
+          return;
+        }
+
+        // Hybrid Auth: Send token to backend to verify and mint custom token
+        final response = await http.post(
+          Uri.parse('${NetworkConfig.baseUrl}/auth/google'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'idToken': idToken}),
+        );
+
+        if (response.statusCode == 200) {
+          final body = jsonDecode(response.body);
+          if (body['success'] == true && body['data'] != null) {
+            final customToken = body['data']['customToken'];
+
+            // Sign in to Firebase with the Custom Token
+            final userCredential = await _auth.signInWithCustomToken(customToken);
+
+            if (userCredential.user != null) {
+              // Fire-and-forget logging to avoid blocking the UI
+              _logAuthEvent(userCredential.user!, 'LOGIN');
+            }
+          } else {
+            _error = 'Backend authentication failed.';
+          }
+        } else {
+          _error = 'Server error during authentication.';
+          debugPrint('Backend Auth Error: ${response.body}');
+        }
+      }
     } catch (e) {
       final errorStr = e.toString();
       if (errorStr.contains('ApiException: 10')) {
@@ -154,10 +199,12 @@ class AuthProvider extends ChangeNotifier {
           debugPrint('Error logging logout: $e');
         });
       }
-      _googleSignIn.signOut().catchError((e) {
-        debugPrint('Google Sign-Out Error: $e');
-        return null;
-      });
+      if (!kIsWeb) {
+        _googleSignIn.signOut().catchError((e) {
+          debugPrint('Google Sign-Out Error: $e');
+          return null;
+        });
+      }
       await _auth.signOut();
     } catch (e) {
       debugPrint('Sign-Out Error: $e');

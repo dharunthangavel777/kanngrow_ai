@@ -5,6 +5,7 @@ import '../../app_theme.dart';
 import '../../widgets/setup/wizard_option_card.dart';
 import '../../widgets/skeleton/onboarding_skeleton.dart';
 import '../../providers/onboarding_provider.dart';
+import '../../providers/chat_provider.dart';
 import '../chat_screen.dart';
 
 class DynamicOnboardingScreen extends StatefulWidget {
@@ -16,21 +17,40 @@ class DynamicOnboardingScreen extends StatefulWidget {
 
 class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen> {
   final PageController _pageController = PageController();
+  final TextEditingController _textController = TextEditingController();
   int _currentIndex = 0;
 
   @override
   void dispose() {
     _pageController.dispose();
+    _textController.dispose();
     super.dispose();
   }
 
   void _nextPage(OnboardingProvider provider) async {
+    final chatProvider = context.read<ChatProvider>();
     if (_currentIndex == provider.questions.length - 1) {
       final hasNext = await provider.generateNextQuestion();
       if (hasNext && mounted) {
         _animateToNext();
       } else {
-        await provider.completeOnboardingOnBackend();
+        if (!mounted) return;
+        final answersSummary = provider.visibleAnswers.entries
+            .map((e) => '- ${e.key}: ${e.value.join(", ")}')
+            .join('\n');
+            
+        final prompt = 'Based on my e-commerce profile, please generate a detailed, personalized e-commerce business idea for me. Here is my profile:\n$answersSummary';
+
+        if (provider.isIdeaMode) {
+          await provider.completeIdeaOnboarding();
+          await chatProvider.createNewChat(isIdea: true, title: 'New Business Idea');
+        } else {
+          await provider.completeOnboardingOnBackend();
+          await chatProvider.createNewChat(isIdea: true, title: 'My Business Idea');
+        }
+
+        chatProvider.sendMessage(prompt);
+
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
@@ -76,6 +96,18 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen> {
     });
   }
 
+  void _onPageChanged(int index, OnboardingProvider provider) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _currentIndex = index);
+        final question = provider.questions[index];
+        if (question.type == 'text') {
+          _textController.text = provider.answers[question.title]?.first ?? '';
+        }
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,7 +143,7 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen> {
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
-                                value: (_currentIndex + 1) / totalPages,
+                                value: totalPages > 0 ? (_currentIndex + 1) / totalPages : 0,
                                 backgroundColor: Colors.white.withValues(alpha: 0.1),
                                 valueColor: const AlwaysStoppedAnimation<Color>(AppColors.lightCyan),
                                 minHeight: 6,
@@ -131,13 +163,7 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen> {
                       child: PageView.builder(
                         controller: _pageController,
                         physics: const NeverScrollableScrollPhysics(),
-                        onPageChanged: (index) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted) {
-                              setState(() => _currentIndex = index);
-                            }
-                          });
-                        },
+                        onPageChanged: (index) => _onPageChanged(index, provider),
                         itemCount: provider.questions.length,
                         itemBuilder: (context, index) {
                           final question = provider.questions[index];
@@ -186,6 +212,8 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen> {
   }
 
   Widget _buildStep(OnboardingProvider provider, OnboardingQuestion question) {
+    final answers = provider.answers[question.title] ?? [];
+
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       children: [
@@ -238,20 +266,101 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen> {
             const SizedBox(height: 32),
           ],
         ),
-        ...question.options.map((opt) {
-          final isSelected = provider.answers[question.title] == opt['title'];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: WizardOptionCard(
-              title: opt['title'] as String,
-              description: opt['desc'] as String,
-              icon: opt['icon'] as IconData,
-              isSelected: isSelected,
-              onTap: () => _onOptionSelected(provider, question.title, opt['title'] as String),
+        
+        if (question.type == 'text') ...[
+          TextField(
+            controller: _textController,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+            cursorColor: AppColors.lightCyan,
+            onChanged: (text) {
+              provider.saveTextAnswer(question.title, text);
+            },
+            decoration: InputDecoration(
+              hintText: 'Enter your name...',
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+              filled: true,
+              fillColor: AppColors.surfaceDark,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: AppColors.lightCyan),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
             ),
-          );
-        }),
+          ),
+          const SizedBox(height: 32),
+          _buildContinueButton(provider, answers.isNotEmpty),
+        ] else if (question.type == 'multi') ...[
+          ...question.options.map((opt) {
+            final isSelected = answers.contains(opt['title']);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: WizardOptionCard(
+                title: opt['title'] as String,
+                description: opt['desc'] as String,
+                icon: opt['icon'] as IconData,
+                isSelected: isSelected,
+                onTap: () {
+                  provider.toggleAnswer(question.title, opt['title'] as String);
+                },
+              ),
+            );
+          }),
+          const SizedBox(height: 24),
+          _buildContinueButton(provider, answers.isNotEmpty),
+        ] else ...[
+          ...question.options.map((opt) {
+            final isSelected = answers.contains(opt['title']);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: WizardOptionCard(
+                title: opt['title'] as String,
+                description: opt['desc'] as String,
+                icon: opt['icon'] as IconData,
+                isSelected: isSelected,
+                onTap: () => _onOptionSelected(provider, question.title, opt['title'] as String),
+              ),
+            );
+          }),
+        ]
       ],
+    );
+  }
+
+  Widget _buildContinueButton(OnboardingProvider provider, bool isEnabled) {
+    return GestureDetector(
+      onTap: isEnabled ? () => _nextPage(provider) : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: isEnabled ? AppColors.lightCyan : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isEnabled
+              ? [
+                  BoxShadow(
+                    color: AppColors.lightCyan.withValues(alpha: 0.2),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                  )
+                ]
+              : null,
+        ),
+        child: Center(
+          child: Text(
+            'Continue',
+            style: TextStyle(
+              color: isEnabled ? Colors.black : Colors.white.withValues(alpha: 0.2),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

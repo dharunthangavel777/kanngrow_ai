@@ -374,7 +374,20 @@ class _MessageBubbleState extends State<MessageBubble> {
         continue;
       }
 
-      // 5. Normal Paragraph
+      // 5. Follow-up suggestion chips (lines starting with →)
+      // These are the natural follow-up questions the AI suggests at the end.
+      if (trimmedLine.startsWith('→ ') || trimmedLine.startsWith('→ ')) {
+        final suggestionText = trimmedLine.replaceFirst(RegExp(r'^→\s*'), '').trim();
+        if (suggestionText.isNotEmpty) {
+          blocks.add(Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 2),
+            child: _FollowUpChip(text: suggestionText),
+          ));
+          continue;
+        }
+      }
+
+      // 6. Normal Paragraph
       blocks.add(Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: RichText(
@@ -1107,3 +1120,60 @@ class _ReasoningBlockState extends State<_ReasoningBlock> {
     );
   }
 }
+
+class _FollowUpChip extends StatelessWidget {
+  final String text;
+
+  const _FollowUpChip({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6, top: 4),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+              chatProvider.sendMessage(text);
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.lightCyan.withValues(alpha: 0.3),
+                  width: 1.2,
+                ),
+                color: AppColors.lightCyan.withValues(alpha: 0.05),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    text,
+                    style: const TextStyle(
+                      color: AppColors.lightCyan,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 14,
+                    color: AppColors.lightCyan,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

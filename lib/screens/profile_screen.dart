@@ -12,6 +12,7 @@ import '../sheets/profile_sheet.dart';
 import '../widgets/chat/chat_header.dart';
 import '../widgets/auth_wrapper.dart';
 import '../widgets/skeleton/profile_skeleton.dart';
+import 'memory_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,6 +23,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _profile;
+  Map<String, dynamic>? _dna;
   bool _loading = true;
 
   @override
@@ -43,6 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (body['success'] == true && body['data'] != null) {
           setState(() {
             _profile = body['data']['profile'];
+            _dna = body['data']['dna'];
             _loading = false;
           });
           return;
@@ -83,6 +86,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
 
+                if (!_loading && _dna != null) ...[
+                  const SizedBox(height: 24),
+                  _DnaCard(dna: _dna),
+                ],
+
                 const SizedBox(height: 24),
 
                 // ── Main Menu ────────────────────────────────────────
@@ -99,6 +107,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _Row(icon: Icons.settings_outlined,
                         label: 'Settings',
                         onTap: () => _openSheet(context, const PreferencesSheet())),
+                    _Divider(),
+                    _Row(
+                        icon: Icons.history_edu_rounded,
+                        label: 'Memory Timeline',
+                        onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const MemoryScreen(),
+                              ),
+                            )),
                     _Divider(),
                     _Row(
                         icon: Icons.notifications_outlined,
@@ -438,3 +456,196 @@ class _Divider extends StatelessWidget {
     );
   }
 }
+
+class _DnaCard extends StatelessWidget {
+  final Map<String, dynamic>? dna;
+
+  const _DnaCard({this.dna});
+
+  @override
+  Widget build(BuildContext context) {
+    if (dna == null) {
+      return const SizedBox.shrink();
+    }
+
+    final String lang = dna!['language'] ?? 'English';
+    final String state = dna!['state'] ?? 'Not set';
+    final String city = dna!['city'] ?? '';
+    final String location = city.isNotEmpty ? '$city, $state' : state;
+    final String stage = dna!['businessStage'] ?? 'Idea';
+    final String budget = dna!['budgetLabel'] ?? 'Not set';
+    final String risk = dna!['riskTolerance'] ?? 'Medium';
+    final String niche = dna!['niche'] ?? 'Exploring';
+    final List<dynamic> topics = dna!['preferredTopics'] ?? [];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.psychology_rounded,
+                color: AppColors.lightCyan,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                "Co-Founder DNA",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.lightCyan.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  "SETUP",
+                  style: TextStyle(
+                    color: AppColors.lightCyan,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            "This is your personalized business profile, established from your onboarding choices. Kangrow uses this to tailor advice specifically to you.",
+            style: TextStyle(
+              color: AppColors.textGray,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _DnaItem(
+            icon: Icons.translate_rounded,
+            label: "Preferred Language",
+            value: lang.toUpperCase(),
+          ),
+          const Divider(color: Colors.white10, height: 16),
+          _DnaItem(
+            icon: Icons.location_on_outlined,
+            label: "Location Context",
+            value: location,
+          ),
+          const Divider(color: Colors.white10, height: 16),
+          _DnaItem(
+            icon: Icons.business_center_outlined,
+            label: "Business Stage",
+            value: stage.toUpperCase(),
+          ),
+          const Divider(color: Colors.white10, height: 16),
+          _DnaItem(
+            icon: Icons.payments_outlined,
+            label: "Budget Context",
+            value: budget,
+          ),
+          const Divider(color: Colors.white10, height: 16),
+          _DnaItem(
+            icon: Icons.assessment_outlined,
+            label: "Risk Tolerance",
+            value: risk.toUpperCase(),
+          ),
+          const Divider(color: Colors.white10, height: 16),
+          _DnaItem(
+            icon: Icons.insights_rounded,
+            label: "Market Niche",
+            value: niche,
+          ),
+          if (topics.isNotEmpty) ...[
+            const Divider(color: Colors.white10, height: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Top Topics Explored",
+                  style: TextStyle(
+                    color: AppColors.textLightGray,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: topics.map((t) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.lightCyan.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.lightCyan.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: Text(
+                      t.toString(),
+                      style: const TextStyle(
+                        color: AppColors.lightCyan,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  )).toList(),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DnaItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _DnaItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.white38, size: 18),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.textLightGray,
+            fontSize: 13,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+

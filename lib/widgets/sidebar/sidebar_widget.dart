@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../app_theme.dart';
 import '../../models/chat.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/onboarding_provider.dart';
+import '../../screens/setup/dynamic_onboarding_screen.dart';
 import '../chat/chat_header.dart';
 
 class SidebarWidget extends StatelessWidget {
@@ -33,6 +35,12 @@ class SidebarWidget extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.06),
                 ),
                 _NewChatRow(),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Colors.white.withValues(alpha: 0.06),
+                ),
+                _NewIdeaRow(),
                 Divider(
                   height: 1,
                   thickness: 1,
@@ -162,6 +170,71 @@ class _NewChatRowState extends State<_NewChatRow> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// New Idea — flat text row that starts onboarding
+// ─────────────────────────────────────────────────────────────────────────────
+class _NewIdeaRow extends StatefulWidget {
+  const _NewIdeaRow();
+
+  @override
+  State<_NewIdeaRow> createState() => _NewIdeaRowState();
+}
+
+class _NewIdeaRowState extends State<_NewIdeaRow> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            context.read<OnboardingProvider>().resetForNewIdea();
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    const DynamicOnboardingScreen(),
+                transitionsBuilder:
+                    (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+              ),
+            );
+          },
+          splashColor: Colors.white.withValues(alpha: 0.04),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  color: _hovered
+                      ? AppColors.lightCyan
+                      : Colors.white.withValues(alpha: 0.55),
+                  size: 18,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'New Idea',
+                  style: TextStyle(
+                    color: _hovered ? AppColors.lightCyan : Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Search — flat text row with inline TextField
 // ─────────────────────────────────────────────────────────────────────────────
 class _SearchRow extends StatelessWidget {
@@ -212,20 +285,50 @@ class _ChatHistoryList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<ChatProvider>(
       builder: (context, provider, _) {
+        final ideas = provider.chats.where((c) => c.isIdea).toList();
+        final normalChats = provider.chats.where((c) => !c.isIdea).toList();
+
+        final todayNormal = normalChats.where((c) {
+          final now = DateTime.now();
+          return c.createdAt.year == now.year &&
+              c.createdAt.month == now.month &&
+              c.createdAt.day == now.day;
+        }).toList();
+
+        final yesterdayNormal = normalChats.where((c) {
+          final yesterday = DateTime.now().subtract(const Duration(days: 1));
+          return c.createdAt.year == yesterday.year &&
+              c.createdAt.month == yesterday.month &&
+              c.createdAt.day == yesterday.day;
+        }).toList();
+
+        final last7DaysNormal = normalChats.where((c) {
+          final now = DateTime.now();
+          final sevenDaysAgo = now.subtract(const Duration(days: 7));
+          final yesterday = now.subtract(const Duration(days: 1));
+          return c.createdAt.isAfter(sevenDaysAgo) &&
+              c.createdAt.isBefore(DateTime(
+                  yesterday.year, yesterday.month, yesterday.day));
+        }).toList();
+
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           children: [
-            if (provider.todayChats.isNotEmpty) ...[
-              _GroupLabel('Today'),
-              ...provider.todayChats.map((c) => _ChatItem(chat: c)),
+            if (ideas.isNotEmpty) ...[
+              const _GroupLabel('Ideas'),
+              ...ideas.map((c) => _ChatItem(chat: c)),
             ],
-            if (provider.yesterdayChats.isNotEmpty) ...[
-              _GroupLabel('Yesterday'),
-              ...provider.yesterdayChats.map((c) => _ChatItem(chat: c)),
+            if (todayNormal.isNotEmpty) ...[
+              const _GroupLabel('Today'),
+              ...todayNormal.map((c) => _ChatItem(chat: c)),
             ],
-            if (provider.last7DaysChats.isNotEmpty) ...[
-              _GroupLabel('Last 7 Days'),
-              ...provider.last7DaysChats.map((c) => _ChatItem(chat: c)),
+            if (yesterdayNormal.isNotEmpty) ...[
+              const _GroupLabel('Yesterday'),
+              ...yesterdayNormal.map((c) => _ChatItem(chat: c)),
+            ],
+            if (last7DaysNormal.isNotEmpty) ...[
+              const _GroupLabel('Last 7 Days'),
+              ...last7DaysNormal.map((c) => _ChatItem(chat: c)),
             ],
             const SizedBox(height: 8),
           ],
@@ -274,6 +377,7 @@ class _ChatItemState extends State<_ChatItem> {
   Widget build(BuildContext context) {
     final provider = context.watch<ChatProvider>();
     final isSelected = provider.activeChatId == widget.chat.id;
+    final isIdea = widget.chat.isIdea;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -293,25 +397,31 @@ class _ChatItemState extends State<_ChatItem> {
           decoration: BoxDecoration(
             color: isSelected
                 ? AppColors.cardBg
-                : _hovered
-                ? AppColors.cardBg.withValues(alpha: 0.5)
-                : Colors.transparent,
+                : isIdea
+                    ? AppColors.lightCyan.withValues(alpha: 0.03)
+                    : _hovered
+                        ? AppColors.cardBg.withValues(alpha: 0.5)
+                        : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
-            border: isSelected
-                ? Border.all(
-                    color: AppColors.lightCyan.withValues(alpha: 0.3),
-                    width: 1,
-                  )
-                : null,
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.lightCyan.withValues(alpha: 0.3)
+                  : isIdea
+                      ? AppColors.lightCyan.withValues(alpha: 0.1)
+                      : Colors.transparent,
+              width: 1,
+            ),
           ),
           child: Row(
             children: [
               Icon(
-                Icons.chat_bubble_outline_rounded,
+                isIdea ? Icons.lightbulb_outline_rounded : Icons.chat_bubble_outline_rounded,
                 size: 15,
                 color: isSelected
                     ? AppColors.lightCyan
-                    : AppColors.textLightGray,
+                    : isIdea
+                        ? AppColors.lightCyan.withValues(alpha: 0.7)
+                        : AppColors.textLightGray,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -322,9 +432,11 @@ class _ChatItemState extends State<_ChatItem> {
                   style: TextStyle(
                     color: isSelected
                         ? AppColors.textWhite
-                        : AppColors.textGray,
+                        : isIdea
+                            ? AppColors.textWhite.withValues(alpha: 0.9)
+                            : AppColors.textGray,
                     fontSize: 13,
-                    fontWeight: isSelected
+                    fontWeight: isSelected || isIdea
                         ? FontWeight.w600
                         : FontWeight.normal,
                   ),

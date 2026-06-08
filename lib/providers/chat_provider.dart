@@ -135,6 +135,7 @@ class ChatProvider extends ChangeNotifier {
               id: s['id'] as String,
               title: s['title'] as String,
               createdAt: DateTime.parse(s['createdAt'] as String),
+              isIdea: s['isIdea'] == true,
             );
             _chats.add(chat);
           }
@@ -255,12 +256,15 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> createNewChat() async {
+  Future<void> createNewChat({bool isIdea = false, String? title}) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/chat/sessions'),
         headers: await NetworkConfig.getHeaders(),
-        body: jsonEncode({'title': 'New Chat'}),
+        body: jsonEncode({
+          'title': title ?? (isIdea ? 'New Business Idea' : 'New Chat'),
+          'isIdea': isIdea,
+        }),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -271,6 +275,7 @@ class ChatProvider extends ChangeNotifier {
             id: s['id'] as String,
             title: s['title'] as String,
             createdAt: DateTime.parse(s['createdAt'] as String),
+            isIdea: s['isIdea'] == true,
           );
           _chats.insert(0, newChat);
           _activeChatId = newChat.id;
@@ -283,7 +288,8 @@ class ChatProvider extends ChangeNotifier {
       // Fallback local creation if backend offline
       final newChat = Chat(
         id: 'chat_${DateTime.now().millisecondsSinceEpoch}',
-        title: 'New Chat',
+        title: title ?? (isIdea ? 'New Business Idea' : 'New Chat'),
+        isIdea: isIdea,
       );
       _chats.insert(0, newChat);
       _activeChatId = newChat.id;
