@@ -83,7 +83,7 @@ class OnboardingProvider extends ChangeNotifier {
           'answeredQuestions': _answers,
           'questionsAsked': dynamicQuestionsAsked,
         }),
-      );
+      ).timeout(const Duration(seconds: 12));
 
       _isGenerating = false;
       notifyListeners();
@@ -135,7 +135,7 @@ class OnboardingProvider extends ChangeNotifier {
         body: jsonEncode({
           'answers': _answers,
         }),
-      );
+      ).timeout(const Duration(seconds: 12));
       
       // Also initialize a profile on the backend using the responses
       await http.post(
@@ -149,7 +149,7 @@ class OnboardingProvider extends ChangeNotifier {
           'experienceLevel': _answers['What is your experience level?'] ?? 'Beginner',
           'stage': _answers['What stage are you at?'] ?? 'Concept',
         }),
-      );
+      ).timeout(const Duration(seconds: 12));
     } catch (e) {
       debugPrint('Error completing onboarding on backend: $e');
     }

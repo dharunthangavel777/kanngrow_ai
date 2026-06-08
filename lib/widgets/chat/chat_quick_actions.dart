@@ -77,10 +77,10 @@ class _QuickActionChipState extends State<_QuickActionChip> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: _hovered ? const Color(0xFF263248) : AppColors.cardBg,
+            color: _hovered ? AppColors.lightCyan.withValues(alpha: 0.1) : AppColors.cardBg,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: _hovered ? AppColors.lightCyan.withValues(alpha: 0.4) : AppColors.borderDark,
             ),
           ),
           child: Row(

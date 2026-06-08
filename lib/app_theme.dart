@@ -2,29 +2,32 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Backgrounds
-  static const Color bgDark = Color(0xFF0D1117);
-  static const Color surfaceDark = Color(0xFF1A1F2E);
-  static const Color surfaceCard = Color(0xFF1C2333);
-  static const Color cardBg = Color(0xFF1A2332);
+  static const Color bgDark = Color(0xFF0A0A0A);
+  static const Color surfaceDark = Color(0xFF111111);
+  static const Color surfaceCard = Color(0xFF111111);
+  static const Color cardBg = Color(0xFF111111);
 
   // Accent
-  static const Color lightCyan = Color(0xFF2CC7C6);
-  static const Color lightCyanHover = Color(0xFF1FA8A7);
+  static const Color lightCyan = Color(0xFF2ED9E5);
+  static const Color lightCyanHover = Color(0xFF1FCAD7);
+  static const Color glowAccent = Color(0xFF43F0FF);
+  static const Color lightAccent = Color(0xFF5FEAF2);
+  static const Color darkAccent = Color(0xFF18AEB9);
 
   // Text
   static const Color textWhite = Color(0xFFFFFFFF);
-  static const Color textGray = Color(0xFF8B8B8B);
-  static const Color textLightGray = Color(0xFF6B7280);
+  static const Color textGray = Color(0xFFBDBDBD);
+  static const Color textLightGray = Color(0xFF8A8A8A);
 
   // Borders
-  static const Color borderDark = Color(0xFF2D3748);
+  static const Color borderDark = Color(0xFF222222);
 
   // Status
   static const Color statusOnline = Color(0xFF10B981);
   static const Color accentSuccess = Color(0xFF10B981);
 
   // Messages
-  static const Color messageUserBg = Color(0xFF2CC7C6);
+  static const Color messageUserBg = Color(0xFF2ED9E5);
 
   // Danger
   static const Color danger = Color(0xFFFF6B6B);

@@ -33,7 +33,7 @@ class AppToast {
           content: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C2333),
+              color: AppColors.cardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: color.withValues(alpha: 0.25)),
               boxShadow: [

@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../app_theme.dart';
 import '../../screens/profile_screen.dart';
-import '../../sheets/notifications_sheet.dart';
+import '../../screens/notifications_screen.dart';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Reusable compact header — used by ChatScreen and ProfileScreen
 // ─────────────────────────────────────────────────────────────────────────────
 class ChatHeader extends StatelessWidget {
   final bool isWide;
 
-  /// Override the centred title widget. Defaults to "Kangrow AI" brand text.
+  /// Override the centred title widget. Defaults to no title.
   final Widget? title;
 
   /// Override the left button. Defaults to menu (mobile) / empty (desktop).
   final Widget? leading;
 
-  /// Override the right button. Defaults to profile avatar.
+  /// Override the right button. Defaults to bell + profile avatar.
   final Widget? trailing;
 
   const ChatHeader({
@@ -56,14 +59,15 @@ class ChatHeader extends StatelessWidget {
               ),
 
               // ── Right ────────────────────────────────────────────────
-              trailing ?? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const _NotificationBell(),
-                  const SizedBox(width: 12),
-                  const _ProfileAvatar(size: 36),
-                ],
-              ),
+              trailing ??
+                  const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _NotificationBell(),
+                      SizedBox(width: 12),
+                      _ProfileAvatar(size: 36),
+                    ],
+                  ),
             ],
           ),
         ),
@@ -73,7 +77,7 @@ class ChatHeader extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Glass icon button
+// Glass icon button (public — used by screens passing custom trailing)
 // ─────────────────────────────────────────────────────────────────────────────
 class HeaderBtn extends StatelessWidget {
   final Widget child;
@@ -85,12 +89,12 @@ class HeaderBtn extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40, height: 40,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
-          color: const Color(0xFF1A2332),
+          color: AppColors.cardBg,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08), width: 1),
+          border: Border.all(color: AppColors.borderDark, width: 1),
         ),
         child: Center(child: child),
       ),
@@ -112,17 +116,36 @@ class _ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final photoUrl = user?.photoURL;
+    final email = user?.email;
+    final name = (user?.displayName != null && user!.displayName!.isNotEmpty)
+        ? user.displayName!
+        : (email != null && email.isNotEmpty)
+            ? email.split('@')[0]
+            : (user?.isAnonymous ?? false ? 'Apple User' : 'E-commerce Founder');
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const ProfileScreen()),
       ),
       child: Container(
-        width: size, height: size,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-              colors: [AppColors.lightCyan, AppColors.lightCyanHover]),
+          image: photoUrl != null && photoUrl.isNotEmpty
+              ? DecorationImage(
+                  image: NetworkImage(photoUrl),
+                  fit: BoxFit.cover,
+                )
+              : null,
+          gradient: photoUrl == null || photoUrl.isEmpty
+              ? const LinearGradient(
+                  colors: [AppColors.lightCyan, AppColors.lightCyanHover])
+              : null,
           boxShadow: [
             BoxShadow(
               color: AppColors.lightCyan.withValues(alpha: 0.3),
@@ -130,52 +153,89 @@ class _ProfileAvatar extends StatelessWidget {
             ),
           ],
         ),
-        child: Center(
-          child: Text('D',
-              style: TextStyle(
-                  fontSize: size * 0.38,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black)),
-        ),
+        child: photoUrl == null || photoUrl.isEmpty
+            ? Center(
+                child: Text(
+                  initial,
+                  style: TextStyle(
+                    fontSize: size * 0.38,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              )
+            : null,
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Notification Bell
+// Notification Bell — live unread count badge using Firestore subcollection
+// Note: AggregateQuery.count().get() is used (not .snapshots()) since
+// real-time aggregate streaming requires Firebase >= 5.x + index setup.
+// We use a StreamBuilder on the full docs query and count client-side instead.
 // ─────────────────────────────────────────────────────────────────────────────
 class _NotificationBell extends StatelessWidget {
   const _NotificationBell();
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
     return Stack(
+      clipBehavior: Clip.none,
       children: [
         HeaderBtn(
           onTap: () {
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              isScrollControlled: true,
-              builder: (context) => const NotificationInboxSheet(),
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
             );
           },
-          child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 20),
+          child: const Icon(Icons.notifications_none_rounded,
+              color: Colors.white, size: 20),
         ),
-        Positioned(
-          right: 8,
-          top: 8,
-          child: Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: AppColors.lightCyan,
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF1A2332), width: 1.5),
+        if (uid != null)
+          Positioned(
+            right: 4,
+            top: 4,
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(uid)
+                  .collection('notifications')
+                  .where('isRead', isEqualTo: false)
+                  .limit(10)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                final count = snapshot.data?.docs.length ?? 0;
+                if (count == 0) return const SizedBox.shrink();
+
+                return Container(
+                  constraints:
+                      const BoxConstraints(minWidth: 16, minHeight: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.lightCyan,
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: AppColors.cardBg, width: 1.5),
+                  ),
+                  child: Center(
+                    child: Text(
+                      count >= 10 ? '9+' : '$count',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
-        ),
       ],
     );
   }

@@ -77,7 +77,7 @@ class _CollapsedBar extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(13),
                       child: Image.asset(
-                        'assets/logos/logo.png',
+                        'assets/logos/logo_without_text.png',
                         width: 26,
                         height: 26,
                         fit: BoxFit.cover,
@@ -252,10 +252,10 @@ class _GlassBtn extends StatelessWidget {
       child: Container(
         width: 40, height: 40,
         decoration: BoxDecoration(
-          color: const Color(0xFF1A2332),
+          color: AppColors.cardBg,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08), width: 1),
+              color: AppColors.borderDark, width: 1),
         ),
         child: Center(child: child),
       ),

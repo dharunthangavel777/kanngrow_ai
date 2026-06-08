@@ -82,11 +82,13 @@ class _SuggestionPillState extends State<_SuggestionPill> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
             color: _hovered
-                ? const Color(0xFF263248)
-                : const Color(0xFF1A2332),
+                ? AppColors.lightCyan.withValues(alpha: 0.1)
+                : AppColors.cardBg,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: _hovered
+                  ? AppColors.lightCyan.withValues(alpha: 0.4)
+                  : AppColors.borderDark,
             ),
           ),
           child: Row(

@@ -1,5 +1,5 @@
 name: kangrow_ai
-description: "Kangrow AI - Premium AI Co-Founder Chat Platform"
+description: "Kanngrow Ai — Premium AI Co-Founder Chat Platform"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -17,11 +17,15 @@ dependencies:
   firebase_auth: ^5.1.0
   cloud_firestore: ^5.1.0
   google_sign_in: ^6.2.1
+  flutter_launcher_icons: ^0.14.4
+  url_launcher: ^6.3.2
+  firebase_messaging: ^15.2.10
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_native_splash: ^2.4.0
 
 flutter:
   uses-material-design: true
@@ -31,6 +35,20 @@ flutter:
     - assets/onboarding_screen/3.svg
     - assets/onboarding_screen/4.svg
     - assets/auth_screen/auth.svg
-    - assets/logos/logo.png
+    - assets/logos/logo_without_text.png
+    - assets/logos/logo_with_text.png
     - assets/logos/QA.svg
+
+flutter_native_splash:
+  color: "#0A0A0A"
+  image: assets/logos/logo_with_text.png
+  android: true
+  ios: true
+  web: false
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/logos/logo_without_text.png"
+  remove_alpha_ios: true
 

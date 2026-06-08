@@ -50,11 +50,12 @@ class _ChatScreenState extends State<ChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients &&
           _scrollController.position.hasContentDimensions) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeOut,
-        );
+        final pos = _scrollController.position;
+        final isNearBottom = pos.maxScrollExtent - pos.pixels < 200;
+        final isBeginning = pos.pixels == 0.0;
+        if (isNearBottom || isBeginning) {
+          _scrollController.jumpTo(pos.maxScrollExtent);
+        }
       }
     });
   }

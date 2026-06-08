@@ -52,7 +52,7 @@ class AuthScreen extends StatelessWidget {
             bottom: -60,
             right: -60,
             child: _Glow(
-              color: const Color(0xFF5C2BE2),
+              color: AppColors.darkAccent,
               size: 280,
               opacity: 0.08,
             ),
@@ -457,7 +457,7 @@ class _LegalSheet extends StatelessWidget {
       maxChildSize: 0.95,
       builder: (_, controller) => Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF111827),
+          color: AppColors.surfaceDark,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
         ),

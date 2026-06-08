@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import '../utils/network_config.dart';
 import '../app_theme.dart';
 import '../utils/app_toast.dart';
 
@@ -26,7 +30,7 @@ class _AppSheet extends StatelessWidget {
       expand: false,
       builder: (_, sc) => Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF111827),
+          color: AppColors.surfaceDark,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
         ),
@@ -89,7 +93,7 @@ class _SheetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF0D1117),
+          color: AppColors.bgDark,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
         ),
@@ -513,7 +517,7 @@ class _SecuritySheetState extends State<SecuritySheet> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111827),
+        backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete Account?',
             style: TextStyle(color: Colors.white, fontSize: 16)),
@@ -666,139 +670,359 @@ class _NotificationsSheetState extends State<NotificationsSheet> {
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. PLAN & SUBSCRIPTION
 // ─────────────────────────────────────────────────────────────────────────────
-class PlanSheet extends StatelessWidget {
+class PlanSheet extends StatefulWidget {
   const PlanSheet({super.key});
+
   @override
-  Widget build(BuildContext context) => _AppSheet(
-        title: 'Plan & Subscription',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Current plan card
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.lightCyan.withValues(alpha: 0.15),
-                    const Color(0xFF0D1117),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: AppColors.lightCyan.withValues(alpha: 0.2)),
+  State<PlanSheet> createState() => _PlanSheetState();
+}
+
+class _PlanSheetState extends State<PlanSheet> {
+  bool _isUpgrading = false;
+
+  Future<void> _initiateCheckout(String tier) async {
+    setState(() => _isUpgrading = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        AppToast.show(context, 'User not authenticated', isError: true);
+        return;
+      }
+
+      final headers = await NetworkConfig.getHeaders();
+      final body = jsonEncode({
+        'tier': tier,
+        'successUrl': 'https://kanngrow.com/billing/success',
+        'cancelUrl': 'https://kanngrow.com/billing/cancel',
+      });
+
+      final response = await http.post(
+        Uri.parse('${NetworkConfig.baseUrl}/billing/checkout'),
+        headers: headers,
+        body: body,
+      );
+
+      final resBody = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && resBody['success'] == true) {
+        final checkoutUrl = resBody['data']['url'] as String;
+
+        await Clipboard.setData(ClipboardData(text: checkoutUrl));
+
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: AppColors.surfaceDark,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Upgrade checkout URL copied!',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              content: Text(
+                'The checkout URL has been copied to your clipboard. Please paste it into your browser to complete your subscription securely via Stripe.\n\nURL: $checkoutUrl',
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.workspace_premium_outlined,
-                          color: AppColors.lightCyan, size: 20),
-                      const SizedBox(width: 8),
-                      const Text('Free Plan',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700)),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text('Current',
-                            style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.45),
-                                fontSize: 11)),
-                      ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK', style: TextStyle(color: AppColors.lightCyan)),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        final errMsg = resBody['error'] ?? 'Checkout failed';
+        if (mounted) {
+          AppToast.show(context, errMsg, isError: true);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.show(context, 'Failed to initiate checkout: $e', isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUpgrading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const _AppSheet(
+        title: 'Plan & Subscription',
+        child: Center(child: Text('User not signed in.', style: TextStyle(color: Colors.white))),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const _AppSheet(
+            title: 'Plan & Subscription',
+            child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan))),
+          );
+        }
+
+        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+        final sub = data['subscription'] as Map<String, dynamic>? ?? {};
+        final currentTier = sub['tier'] as String? ?? 'free';
+        final status = sub['status'] as String? ?? 'active';
+
+        return _AppSheet(
+          title: 'Plan & Subscription',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.lightCyan.withOpacity(0.15),
+                      AppColors.bgDark,
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  _planFeature('50 messages / day'),
-                  _planFeature('Basic AI model'),
-                  _planFeature('7-day chat history'),
-                ],
-              ),
-            ),
-
-            _SectionLabel('Upgrade to Pro'),
-            _SheetCard(children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.lightCyan.withOpacity(0.2)),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const Text('Pro',
-                            style: TextStyle(
-                                color: AppColors.lightCyan,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800)),
+                        const Icon(Icons.workspace_premium_outlined, color: AppColors.lightCyan, size: 20),
                         const SizedBox(width: 8),
-                        Text('₹499 / month',
+                        Text(
+                          '${currentTier[0].toUpperCase()}${currentTier.substring(1)} Plan',
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: status == 'active' ? Colors.green.withOpacity(0.2) : Colors.white.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            status.toUpperCase(),
                             style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.45),
-                                fontSize: 13)),
+                              color: status == 'active' ? Colors.green : Colors.white.withOpacity(0.45),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 14),
-                    _planFeature('Unlimited messages', isPro: true),
-                    _planFeature('GPT-4 & Claude access', isPro: true),
-                    _planFeature('AI Memory (persistent context)', isPro: true),
-                    _planFeature('Unlimited chat history', isPro: true),
-                    _planFeature('Priority support', isPro: true),
-                    const SizedBox(height: 16),
-                    GestureDetector(
-                      onTap: () => AppToast.show(
-                          context, 'Redirecting to payment…',
-                          icon: Icons.payment_rounded),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: AppColors.lightCyan,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: Text('Upgrade Now',
-                              style: TextStyle(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15)),
-                        ),
+                    if (currentTier == 'free') ...[
+                      _planFeature('10 chats / day limit'),
+                      _planFeature('Basic AI Model routing'),
+                      _planFeature('Community support access'),
+                    ] else if (currentTier == 'standard') ...[
+                      _planFeature('100 chats / day limit'),
+                      _planFeature('Advanced SEO analysis'),
+                      _planFeature('Competitor research tool'),
+                      _planFeature('Extended knowledge base access'),
+                    ] else if (currentTier == 'premium') ...[
+                      _planFeature('500 chats / day limit'),
+                      _planFeature('Deep competitor intelligence'),
+                      _planFeature('AI content generation suite'),
+                      _planFeature('E-commerce strategy roadmaps'),
+                    ] else if (currentTier == 'enterprise') ...[
+                      _planFeature('5000 chats / day limit'),
+                      _planFeature('Custom fine-tuned LLM routing'),
+                      _planFeature('Multi-user team management'),
+                      _planFeature('API tokens & white-label controls'),
+                    ],
+                    if (currentTier != 'free') ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 10),
+                        child: Divider(color: Colors.white10, height: 1),
                       ),
-                    ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Billing Source',
+                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                          ),
+                          Text(
+                            _formatSourceType(sub['sourceType'] as String?),
+                            style: const TextStyle(color: AppColors.lightCyan, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Duration / Expiry',
+                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                          ),
+                          Text(
+                            _formatExpiry(sub['isLifetime'] as bool?, sub['currentPeriodEnd'] as String?),
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      if (sub['notes'] != null && (sub['notes'] as String).isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Notes',
+                              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                sub['notes'] as String,
+                                textAlign: TextAlign.right,
+                                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, fontStyle: FontStyle.italic),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
                   ],
                 ),
               ),
-            ]),
 
-            _SectionLabel('Billing'),
-            _SheetCard(children: [
-              _SheetRow(
-                icon: Icons.receipt_long_outlined,
-                label: 'Billing History',
-                onTap: () => AppToast.show(context, 'No invoices yet',
-                    icon: Icons.receipt_long_outlined),
+              const SizedBox(height: 24),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Text('Available Plans', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
               ),
-              _SheetDivider(),
-              _SheetRow(
-                icon: Icons.credit_card_outlined,
-                label: 'Payment Method',
-                value: 'None',
-                onTap: () => AppToast.show(context, 'Add a payment method to upgrade',
-                    icon: Icons.credit_card_outlined),
+              const SizedBox(height: 12),
+
+              _isUpgrading
+                  ? const Center(child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan)),
+                    ))
+                  : Column(
+                      children: [
+                        if (currentTier == 'free')
+                          _upgradeOptionCard(
+                            tier: 'standard',
+                            name: 'Standard Plan',
+                            price: '₹1,500 / month',
+                            desc: 'Best for small online sellers starting out.',
+                            features: ['100 chats / day', 'SEO recommendations', 'Competitor lookup'],
+                          ),
+                        if (currentTier == 'free' || currentTier == 'standard')
+                          _upgradeOptionCard(
+                            tier: 'premium',
+                            name: 'Premium Plan',
+                            price: '₹4,000 / month',
+                            desc: 'For growing e-commerce businesses.',
+                            features: ['500 chats / day', 'Marketing strategies', 'Content suite'],
+                          ),
+                        if (currentTier != 'enterprise')
+                          _upgradeOptionCard(
+                            tier: 'enterprise',
+                            name: 'Enterprise Plan',
+                            price: 'Custom Pricing',
+                            desc: 'Dedicated models and multi-user configurations.',
+                            features: ['5000 chats / day', 'Fine-tuned LLM access', 'Team accounts'],
+                          ),
+                      ],
+                    ),
+
+              const SizedBox(height: 24),
+              _SectionLabel('Billing Details'),
+              _SheetCard(children: [
+                _SheetRow(
+                  icon: Icons.receipt_long_outlined,
+                  label: 'Billing History',
+                  onTap: () => AppToast.show(context, 'Loading Stripe invoices…', icon: Icons.receipt_long_outlined),
+                ),
+                _SheetDivider(),
+                _SheetRow(
+                  icon: Icons.credit_card_outlined,
+                  label: 'Payment Method',
+                  value: sub['stripeSubscriptionId'] != null ? 'Linked Credit Card' : 'None',
+                  onTap: () => AppToast.show(context, 'Manage payments securely on Stripe', icon: Icons.credit_card_outlined),
+                ),
+              ]),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _upgradeOptionCard({
+    required String tier,
+    required String name,
+    required String price,
+    required String desc,
+    required List<String> features,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(name, style: const TextStyle(color: AppColors.lightCyan, fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(price, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(desc, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+          const Divider(height: 24),
+          ...features.map((f) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded, color: AppColors.lightCyan, size: 14),
+                    const SizedBox(width: 8),
+                    Text(f, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12)),
+                  ],
+                ),
+              )),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () => _initiateCheckout(tier),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.lightCyan,
+                borderRadius: BorderRadius.circular(10),
               ),
-            ]),
-          ],
-        ),
-      );
+              child: const Center(
+                child: Text(
+                  'Upgrade Now',
+                  style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _planFeature(String text, {bool isPro = false}) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
@@ -806,19 +1030,57 @@ class PlanSheet extends StatelessWidget {
           children: [
             Icon(
               isPro ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-              color: isPro
-                  ? AppColors.lightCyan
-                  : Colors.white.withValues(alpha: 0.3),
+              color: isPro ? AppColors.lightCyan : Colors.white.withOpacity(0.3),
               size: 16,
             ),
             const SizedBox(width: 8),
-            Text(text,
-                style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 13)),
+            Text(text, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
           ],
         ),
       );
+
+  String _formatSourceType(String? source) {
+    if (source == null) return 'Stripe Payment';
+    switch (source) {
+      case 'payment':
+        return 'Stripe Payment';
+      case 'admin_assignment':
+        return 'Admin Assigned';
+      case 'promo':
+        return 'Promotional Grant';
+      case 'trial':
+        return 'Trial Access';
+      case 'referral_reward':
+        return 'Referral Reward';
+      case 'enterprise_contract':
+        return 'Enterprise Contract';
+      default:
+        return 'Special Access';
+    }
+  }
+
+  String _formatExpiry(bool? isLifetime, String? end) {
+    if (isLifetime == true || end == 'lifetime') {
+      return 'Lifetime Access';
+    }
+    if (end == null) {
+      return 'None';
+    }
+    try {
+      final expiry = DateTime.parse(end);
+      final daysLeft = expiry.difference(DateTime.now()).inDays;
+      final dateStr = '${expiry.year}-${expiry.month.toString().padLeft(2, '0')}-${expiry.day.toString().padLeft(2, '0')}';
+      if (daysLeft > 0) {
+        return '$dateStr ($daysLeft days remaining)';
+      } else if (daysLeft == 0) {
+        return '$dateStr (Expires today)';
+      } else {
+        return '$dateStr (Expired)';
+      }
+    } catch (_) {
+      return end.split('T')[0];
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -915,7 +1177,7 @@ class _BadgeCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: earned
               ? AppColors.lightCyan.withValues(alpha: 0.07)
-              : const Color(0xFF0D1117),
+              : AppColors.bgDark,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: earned
@@ -975,7 +1237,7 @@ class SavedIdeasSheet extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D1117),
+                  color: AppColors.bgDark,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                       color: Colors.white.withValues(alpha: 0.07)),
@@ -1231,7 +1493,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
       builder: (_) => Container(
         padding: const EdgeInsets.all(20),
         decoration: const BoxDecoration(
-          color: Color(0xFF111827),
+          color: AppColors.surfaceDark,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
@@ -1334,7 +1596,7 @@ class _FaqTileState extends State<_FaqTile> {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF0D1117),
+            color: AppColors.bgDark,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
           ),
@@ -1476,7 +1738,7 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
           _SectionLabel('Message'),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF0D1117),
+              color: AppColors.bgDark,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),

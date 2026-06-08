@@ -120,7 +120,7 @@ class ChatProvider extends ChangeNotifier {
       final response = await http.get(
         Uri.parse('$_baseUrl/chat/sessions?includeRecent=true'),
         headers: await NetworkConfig.getHeaders(),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
@@ -202,7 +202,7 @@ class ChatProvider extends ChangeNotifier {
       final response = await http.get(
         Uri.parse('$_baseUrl/chat/sessions/$chatId/messages'),
         headers: await NetworkConfig.getHeaders(),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
@@ -261,7 +261,7 @@ class ChatProvider extends ChangeNotifier {
         Uri.parse('$_baseUrl/chat/sessions'),
         headers: await NetworkConfig.getHeaders(),
         body: jsonEncode({'title': 'New Chat'}),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final body = jsonDecode(response.body);
@@ -304,10 +304,30 @@ class ChatProvider extends ChangeNotifier {
       await http.delete(
         Uri.parse('$_baseUrl/chat/sessions/$chatId'),
         headers: await NetworkConfig.getHeaders(),
-      );
+      ).timeout(const Duration(seconds: 10));
     } catch (e) {
       debugPrint('Error deleting session: $e');
     }
+  }
+
+  List<String> _splitIntoWords(String text) {
+    final List<String> tokens = [];
+    final RegExp regExp = RegExp(r'(\s+)');
+    int lastMatchEnd = 0;
+
+    for (final Match match in regExp.allMatches(text)) {
+      if (match.start > lastMatchEnd) {
+        tokens.add(text.substring(lastMatchEnd, match.start));
+      }
+      tokens.add(match.group(0)!);
+      lastMatchEnd = match.end;
+    }
+
+    if (lastMatchEnd < text.length) {
+      tokens.add(text.substring(lastMatchEnd));
+    }
+
+    return tokens;
   }
 
   Future<void> sendMessage(String text) async {
@@ -336,13 +356,16 @@ class ChatProvider extends ChangeNotifier {
       final response = await http.post(
         Uri.parse('$_baseUrl/chat/sessions/${chat.id}/messages'),
         headers: await NetworkConfig.getHeaders(),
-        body: jsonEncode({'message': text}),
-      );
+        body: jsonEncode({
+          'message': text,
+          'model': _aiModel,
+        }),
+      ).timeout(const Duration(seconds: 25));
 
       _isTyping = false;
       notifyListeners();
 
-          if (response.statusCode == 200) {
+      if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         if (body['success'] == true && body['data'] != null) {
           final d = body['data'];
@@ -354,11 +377,25 @@ class ChatProvider extends ChangeNotifier {
             modules = List<String>.from(body['meta']['usedModules']);
           }
 
-          chat.messages.add(Message.assistant(
-            reply,
+          // Create an empty assistant message and stream progressively
+          final assistantMsg = Message.assistant(
+            "",
             usedModules: modules,
             metadata: metadata,
-          ));
+          );
+          chat.messages.add(assistantMsg);
+          notifyListeners();
+
+          final tokens = _splitIntoWords(reply);
+          int tokenCount = 0;
+          for (final token in tokens) {
+            assistantMsg.text = (assistantMsg.text ?? "") + token;
+            tokenCount++;
+            if (tokenCount % 3 == 0 || tokenCount == tokens.length) {
+              notifyListeners();
+            }
+            await Future.delayed(const Duration(milliseconds: 20));
+          }
 
           // Append appropriate cards for visual modules
           if (modules != null) {
@@ -374,24 +411,28 @@ class ChatProvider extends ChangeNotifier {
 
     // Fallback if backend call fails
     _isTyping = false;
-    chat.messages.add(Message.assistant(
-      'Sorry, I had trouble reaching the AI co-founder brain. Please verify that the backend server is running locally on port 3000.',
+    final fallbackMsg = Message.assistant(
+      "",
       usedModules: ['AI Decision Engine'],
-    ));
+    );
+    chat.messages.add(fallbackMsg);
     notifyListeners();
+
+    const fallbackText = 'Sorry, I had trouble reaching the AI co-founder brain. Please verify that the backend server is running locally on port 3000.';
+    final tokens = _splitIntoWords(fallbackText);
+    int tokenCount = 0;
+    for (final token in tokens) {
+      fallbackMsg.text = (fallbackMsg.text ?? "") + token;
+      tokenCount++;
+      if (tokenCount % 3 == 0 || tokenCount == tokens.length) {
+        notifyListeners();
+      }
+      await Future.delayed(const Duration(milliseconds: 20));
+    }
   }
 
   void _appendCardsForModules(Chat chat, List<String> modules, Map<String, dynamic>? metadata) {
-    final meta = metadata ?? {};
-    if (modules.contains('Product Idea Generator')) {
-      chat.messages.add(Message.ideaCard(meta));
-    }
-    if (modules.contains('Product Validation')) {
-      chat.messages.add(Message.validationCard(meta));
-    }
-    if (modules.contains('E-commerce Roadmap') || modules.contains('Business Plan Generator')) {
-      chat.messages.add(Message.roadmapCard(meta));
-    }
+    // Disabled in V2 Ultra Response System to enforce a single flowing markdown response.
   }
 
   // Settings state

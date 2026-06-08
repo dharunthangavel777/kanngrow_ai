@@ -55,10 +55,10 @@ class _InputBarState extends State<InputBar> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A2332),
+                  color: AppColors.cardBg,
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AppColors.borderDark,
                     width: 1,
                   ),
                 ),
@@ -114,11 +114,11 @@ class _InputBarState extends State<InputBar> {
               height: 50,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _hasText ? AppColors.lightCyan : const Color(0xFF1A2332),
+                color: _hasText ? AppColors.lightCyan : AppColors.cardBg,
                 border: _hasText
                     ? null
                     : Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: AppColors.borderDark,
                         width: 1,
                       ),
                 boxShadow: _hasText

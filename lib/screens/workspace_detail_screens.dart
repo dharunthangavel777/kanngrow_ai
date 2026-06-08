@@ -612,7 +612,7 @@ class _WorkspaceBusinessPlansScreenState extends State<WorkspaceBusinessPlansScr
               showDialog(
                 context: context,
                 builder: (_) => AlertDialog(
-                  backgroundColor: const Color(0xFF111827),
+                  backgroundColor: AppColors.surfaceDark,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   title: Text(title, style: const TextStyle(color: Colors.white)),
                   content: SingleChildScrollView(

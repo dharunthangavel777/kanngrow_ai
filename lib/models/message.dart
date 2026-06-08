@@ -5,7 +5,7 @@ enum MessageType { user, assistant, ideaCard, taskCard, roadmapCard, validationC
 class Message {
   final String id;
   final MessageType type;
-  final String? text;
+  String? text;
   final List<String>? usedModules;
   final Map<String, dynamic>? metadata;
   final DateTime timestamp;

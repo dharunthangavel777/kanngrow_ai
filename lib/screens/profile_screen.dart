@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import '../providers/auth_provider.dart';
 import '../utils/network_config.dart';
 import '../app_theme.dart';
@@ -227,7 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF111827),
+        backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Log Out?',
             style: TextStyle(color: Colors.white, fontSize: 16)),
@@ -269,7 +270,7 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
       ),
@@ -295,9 +296,14 @@ class _UserRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Default fallback values if no profile is loaded
-    final name = profile?['storeName'] ?? 'User';
-    final email = profile?['email'] ?? 'user@kangrow.ai';
+    final user = FirebaseAuth.instance.currentUser;
+    final photoUrl = user?.photoURL;
+    final email = user?.email ?? profile?['email'] ?? 'user@kangrow.ai';
+    final name = (user?.displayName != null && user!.displayName!.isNotEmpty)
+        ? user.displayName!
+        : (email.isNotEmpty && email.contains('@'))
+            ? email.split('@')[0]
+            : 'User';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
 
     return Material(
@@ -314,11 +320,19 @@ class _UserRow extends StatelessWidget {
                 width: 48, height: 48,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.lightCyan, AppColors.lightCyanHover],
-                  ),
+                  image: photoUrl != null && photoUrl.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(photoUrl),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                  gradient: photoUrl == null || photoUrl.isEmpty
+                      ? const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [AppColors.lightCyan, AppColors.lightCyanHover],
+                        )
+                      : null,
                   boxShadow: [
                     BoxShadow(
                       color: AppColors.lightCyan.withValues(alpha: 0.3),
@@ -326,13 +340,15 @@ class _UserRow extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Center(
-                  child: Text(initial,
-                      style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black)),
-                ),
+                child: photoUrl == null || photoUrl.isEmpty
+                    ? Center(
+                        child: Text(initial,
+                            style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black)),
+                      )
+                    : null,
               ),
               const SizedBox(width: 14),
               // Name + email

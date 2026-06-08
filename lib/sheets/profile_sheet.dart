@@ -117,8 +117,12 @@ class _ProfileSheetState extends State<ProfileSheet> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final email = user?.email ?? 'anonymous@kangrow.ai';
-    final rawName = user?.displayName ?? '';
-    final name = rawName.isNotEmpty ? rawName : (user?.isAnonymous ?? false ? 'Apple User' : 'E-commerce Founder');
+    final photoUrl = user?.photoURL;
+    final name = (user?.displayName != null && user!.displayName!.isNotEmpty)
+        ? user.displayName!
+        : (email.isNotEmpty && email.contains('@'))
+            ? email.split('@')[0]
+            : (user?.isAnonymous ?? false ? 'Apple User' : 'E-commerce Founder');
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
 
     return DraggableScrollableSheet(
@@ -193,14 +197,22 @@ class _ProfileSheetState extends State<ProfileSheet> {
                             height: 72,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: const LinearGradient(
-                                colors: [
-                                  AppColors.lightCyan,
-                                  AppColors.lightCyanHover
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
+                              image: photoUrl != null && photoUrl.isNotEmpty
+                                  ? DecorationImage(
+                                      image: NetworkImage(photoUrl),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                              gradient: photoUrl == null || photoUrl.isEmpty
+                                  ? const LinearGradient(
+                                      colors: [
+                                        AppColors.lightCyan,
+                                        AppColors.lightCyanHover
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                  : null,
                               boxShadow: [
                                 BoxShadow(
                                   color: AppColors.lightCyan.withOpacity(0.3),
@@ -209,13 +221,15 @@ class _ProfileSheetState extends State<ProfileSheet> {
                                 )
                               ],
                             ),
-                            child: Center(
-                              child: Text(initial,
-                                  style: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black)),
-                            ),
+                            child: photoUrl == null || photoUrl.isEmpty
+                                ? Center(
+                                    child: Text(initial,
+                                        style: const TextStyle(
+                                            fontSize: 28,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black)),
+                                  )
+                                : null,
                           ),
                           const SizedBox(height: 12),
                           Text(name,
