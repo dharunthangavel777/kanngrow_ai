@@ -273,7 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               // Left Pane: Settings Menu List
               SizedBox(
-                width: 320,
+                width: (MediaQuery.of(context).size.width * 0.45).clamp(350.0, 650.0),
                 child: Column(
                   children: [
                     // Header for left pane

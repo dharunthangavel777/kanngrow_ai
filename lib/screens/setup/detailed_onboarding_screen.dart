@@ -65,13 +65,14 @@ class _DetailedOnboardingScreenState extends State<DetailedOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 768;
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       body: SafeArea(
         child: Align(
           alignment: Alignment.center,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
+            constraints: BoxConstraints(maxWidth: isWide ? 950 : 600),
             child: Column(
               children: [
                 // Progress Bar & Header
@@ -132,9 +133,16 @@ class _DetailedOnboardingScreenState extends State<DetailedOnboardingScreen> {
     );
   }
 
-  Widget _buildStepHeader(String title, String subtitle) {
-    return Column(
+  Widget _buildResponsiveStep({
+    required String title,
+    required String subtitle,
+    required Widget rightPane,
+  }) {
+    final isWide = MediaQuery.of(context).size.width >= 768;
+
+    final leftPane = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: isWide ? MainAxisAlignment.center : MainAxisAlignment.start,
       children: [
         Text(
           title,
@@ -154,7 +162,39 @@ class _DetailedOnboardingScreenState extends State<DetailedOnboardingScreen> {
             fontSize: 15,
           ),
         ),
+      ],
+    );
+
+    if (isWide) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              flex: 5,
+              child: SingleChildScrollView(
+                child: leftPane,
+              ),
+            ),
+            const SizedBox(width: 48),
+            Expanded(
+              flex: 5,
+              child: SingleChildScrollView(
+                child: rightPane,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      children: [
+        leftPane,
         const SizedBox(height: 32),
+        rightPane,
       ],
     );
   }
@@ -167,11 +207,12 @@ class _DetailedOnboardingScreenState extends State<DetailedOnboardingScreen> {
       {'title': 'Experienced Seller', 'icon': Icons.loop_rounded, 'desc': 'I have built stores before'},
     ];
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        _buildStepHeader('Who are you?', 'Tell us a bit about your background so we can tailor our advice.'),
-        ...types.map((type) => Padding(
+    return _buildResponsiveStep(
+      title: 'Who are you?',
+      subtitle: 'Tell us a bit about your background so we can tailor our advice.',
+      rightPane: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: types.map((type) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: WizardOptionCard(
             title: type['title'] as String,
@@ -180,8 +221,8 @@ class _DetailedOnboardingScreenState extends State<DetailedOnboardingScreen> {
             isSelected: _userType == type['title'],
             onTap: () => _onOptionSelected(() => setState(() => _userType = type['title'] as String)),
           ),
-        )),
-      ],
+        )).toList(),
+      ),
     );
   }
 
@@ -192,11 +233,12 @@ class _DetailedOnboardingScreenState extends State<DetailedOnboardingScreen> {
       {'title': 'Expert', 'icon': Icons.auto_graph_rounded, 'desc': 'I am well-versed in building and scaling businesses'},
     ];
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        _buildStepHeader('What is your experience level?', 'This helps the AI set the right tone and depth for answers.'),
-        ...levels.map((level) => Padding(
+    return _buildResponsiveStep(
+      title: 'What is your experience level?',
+      subtitle: 'This helps the AI set the right tone and depth for answers.',
+      rightPane: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: levels.map((level) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: WizardOptionCard(
             title: level['title'] as String,
@@ -205,8 +247,8 @@ class _DetailedOnboardingScreenState extends State<DetailedOnboardingScreen> {
             isSelected: _experienceLevel == level['title'],
             onTap: () => _onOptionSelected(() => setState(() => _experienceLevel = level['title'] as String)),
           ),
-        )),
-      ],
+        )).toList(),
+      ),
     );
   }
 
@@ -218,11 +260,12 @@ class _DetailedOnboardingScreenState extends State<DetailedOnboardingScreen> {
       {'title': 'Scaling', 'icon': Icons.insights_rounded, 'desc': 'We are growing and generating revenue'},
     ];
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        _buildStepHeader('What stage are you at?', 'Let us know where your store currently stands.'),
-        ...stages.map((stage) => Padding(
+    return _buildResponsiveStep(
+      title: 'What stage are you at?',
+      subtitle: 'Let us know where your store currently stands.',
+      rightPane: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: stages.map((stage) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: WizardOptionCard(
             title: stage['title'] as String,
@@ -231,8 +274,8 @@ class _DetailedOnboardingScreenState extends State<DetailedOnboardingScreen> {
             isSelected: _startupStage == stage['title'],
             onTap: () => _onOptionSelected(() => setState(() => _startupStage = stage['title'] as String)),
           ),
-        )),
-      ],
+        )).toList(),
+      ),
     );
   }
 
@@ -245,11 +288,12 @@ class _DetailedOnboardingScreenState extends State<DetailedOnboardingScreen> {
       {'title': 'Acquire Customers', 'icon': Icons.campaign_outlined},
     ];
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        _buildStepHeader('What is your primary goal?', 'Select your main focus so we can prioritize your roadmap.'),
-        ...goalsList.map((goal) {
+    return _buildResponsiveStep(
+      title: 'What is your primary goal?',
+      subtitle: 'Select your main focus so we can prioritize your roadmap.',
+      rightPane: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: goalsList.map((goal) {
           final isSelected = _primaryGoal == goal['title'];
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -260,8 +304,8 @@ class _DetailedOnboardingScreenState extends State<DetailedOnboardingScreen> {
               onTap: () => _onOptionSelected(() => setState(() => _primaryGoal = goal['title'] as String)),
             ),
           );
-        }),
-      ],
+        }).toList(),
+      ),
     );
   }
 }

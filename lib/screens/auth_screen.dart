@@ -37,6 +37,210 @@ class AuthScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 768;
+
+    Widget buildIllustrationSection(BuildContext context) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── SVG Illustration ─────────────────────────────────
+          SvgPicture.asset(
+            'assets/auth_screen/auth.svg',
+            height: isWide ? 260 : 220,
+            fit: BoxFit.contain,
+            colorFilter: const ColorFilter.mode(
+              Colors.white,
+              BlendMode.srcIn,
+            ),
+            placeholderBuilder: (_) => SizedBox(
+              height: isWide ? 260 : 220,
+              child: Center(
+                child: SkeletonContainer(
+                  width: 120,
+                  height: 120,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          )
+          .animate(delay: 100.ms)
+          .fadeIn(duration: 600.ms)
+          .scale(
+            begin: const Offset(0.92, 0.92),
+            end: const Offset(1, 1),
+            duration: 600.ms,
+            curve: Curves.easeOutBack,
+          ),
+
+          const SizedBox(height: 32),
+
+          // ── Headline ─────────────────────────────────────────
+          const Text(
+            'Welcome to Kangrow',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.8,
+            ),
+          )
+          .animate(delay: 200.ms)
+          .fadeIn(duration: 500.ms)
+          .slideY(begin: 0.1, end: 0, duration: 400.ms),
+
+          const SizedBox(height: 8),
+
+          Text(
+            'Sign in to build your store with AI',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 15,
+            ),
+          ).animate(delay: 300.ms).fadeIn(duration: 500.ms),
+        ],
+      );
+    }
+
+    Widget buildAuthButtonsSection(BuildContext context) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Auth buttons ─────────────────────────────────────
+          Consumer<AuthProvider>(
+            builder: (context, auth, child) {
+              // Show error if one exists
+              if (auth.error != null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(auth.error!),
+                      backgroundColor: AppColors.danger,
+                    ),
+                  );
+                  auth.clearError();
+                });
+              }
+
+              return Column(
+                children: [
+                  // Continue with Google
+                  _AuthButton(
+                    onTap: () => _handleAuth(context, 'Google'),
+                    icon: _GoogleIcon(),
+                    label: 'Continue with Google',
+                    isLoading: auth.isLoading,
+                    delay: 0,
+                  ),
+
+                  // ── Or divider ───────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: Colors.white.withValues(
+                              alpha: 0.12,
+                            ),
+                            thickness: 1,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                          ),
+                          child: Text(
+                            'Or',
+                            style: TextStyle(
+                              color: Colors.white.withValues(
+                                alpha: 0.35,
+                              ),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            color: Colors.white.withValues(
+                              alpha: 0.12,
+                            ),
+                            thickness: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Continue with Apple
+                  _AuthButton(
+                    onTap: () => _handleAuth(context, 'Apple'),
+                    icon: const Icon(
+                      Icons.apple_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                    label: 'Continue with Apple',
+                    isLoading: false,
+                    delay: 80,
+                    dark: true,
+                  ),
+                ],
+              )
+              .animate(delay: 500.ms)
+              .fadeIn(duration: 500.ms)
+              .slideY(begin: 0.1, end: 0, duration: 400.ms);
+            }
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Terms & Conditions ───────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  fontSize: 12,
+                  height: 1.6,
+                ),
+                children: [
+                  const TextSpan(
+                    text: 'By continuing, you agree to our ',
+                  ),
+                  TextSpan(
+                    text: 'Terms of Service',
+                    style: const TextStyle(
+                      color: AppColors.lightCyan,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.lightCyan,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () => _showTerms(context),
+                  ),
+                  const TextSpan(text: ' and '),
+                  TextSpan(
+                    text: 'Privacy Policy',
+                    style: const TextStyle(
+                      color: AppColors.lightCyan,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.lightCyan,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () => _showPrivacy(context),
+                  ),
+                  const TextSpan(text: '.'),
+                ],
+              ),
+            ),
+          ).animate(delay: 650.ms).fadeIn(duration: 500.ms),
+        ],
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       body: Stack(
@@ -62,211 +266,31 @@ class AuthScreen extends StatelessWidget {
             child: Align(
               alignment: Alignment.center,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 450),
+                constraints: BoxConstraints(maxWidth: isWide ? 900 : 450),
                 child: SingleChildScrollView(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 32),
-
-                        // ── SVG Illustration ─────────────────────────────────
-                        SvgPicture.asset(
-                          'assets/auth_screen/auth.svg',
-                          height: 220,
-                          fit: BoxFit.contain,
-                          colorFilter: const ColorFilter.mode(
-                            Colors.white,
-                            BlendMode.srcIn,
-                          ),
-                          placeholderBuilder: (_) => SizedBox(
-                            height: 220,
-                            child: Center(
-                              child: SkeletonContainer(
-                                width: 120,
-                                height: 120,
-                                shape: BoxShape.circle,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                    child: isWide
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: buildIllustrationSection(context),
                               ),
-                            ),
-                          ),
-                        )
-                        .animate(delay: 100.ms)
-                        .fadeIn(duration: 600.ms)
-                        .scale(
-                          begin: const Offset(0.92, 0.92),
-                          end: const Offset(1, 1),
-                          duration: 600.ms,
-                          curve: Curves.easeOutBack,
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // ── Headline ─────────────────────────────────────────
-                        Column(
-                          children: [
-                            const Text(
-                                  'Welcome to Kangrow',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: -0.8,
-                                  ),
-                                )
-                                .animate(delay: 200.ms)
-                                .fadeIn(duration: 500.ms)
-                                .slideY(begin: 0.1, end: 0, duration: 400.ms),
-
-                            const SizedBox(height: 8),
-
-                            Text(
-                              'Sign in to build your store with AI',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.5),
-                                fontSize: 15,
+                              const SizedBox(width: 64),
+                              Expanded(
+                                child: buildAuthButtonsSection(context),
                               ),
-                            ).animate(delay: 300.ms).fadeIn(duration: 500.ms),
-                          ],
-                        ),
-
-                        const SizedBox(height: 36),
-
-                        // ── Auth buttons ─────────────────────────────────────
-                        Consumer<AuthProvider>(
-                          builder: (context, auth, child) {
-                            // Show error if one exists
-                            if (auth.error != null) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(auth.error!),
-                                    backgroundColor: AppColors.danger,
-                                  ),
-                                );
-                                auth.clearError();
-                              });
-                            }
-
-                            return Column(
-                              children: [
-                                // Continue with Google
-                                _AuthButton(
-                                  onTap: () => _handleAuth(context, 'Google'),
-                                  icon: _GoogleIcon(),
-                                  label: 'Continue with Google',
-                                  isLoading: auth.isLoading,
-                                  delay: 0,
-                                ),
-
-                                // ── Or divider ───────────────────────────────────
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Divider(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.12,
-                                          ),
-                                          thickness: 1,
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                        ),
-                                        child: Text(
-                                          'Or',
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.35,
-                                            ),
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Divider(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.12,
-                                          ),
-                                          thickness: 1,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Continue with Apple
-                                _AuthButton(
-                                  onTap: () => _handleAuth(context, 'Apple'),
-                                  icon: const Icon(
-                                    Icons.apple_rounded,
-                                    color: Colors.white,
-                                    size: 22,
-                                  ),
-                                  label: 'Continue with Apple',
-                                  isLoading: false,
-                                  delay: 80,
-                                  dark: true,
-                                ),
-                              ],
-                            )
-                            .animate(delay: 500.ms)
-                            .fadeIn(duration: 500.ms)
-                            .slideY(begin: 0.1, end: 0, duration: 400.ms);
-                          }
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // ── Terms & Conditions ───────────────────────────────
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: RichText(
-                            textAlign: TextAlign.center,
-                            text: TextSpan(
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.3),
-                                fontSize: 12,
-                                height: 1.6,
-                              ),
-                              children: [
-                                const TextSpan(
-                                  text: 'By continuing, you agree to our ',
-                                ),
-                                TextSpan(
-                                  text: 'Terms of Service',
-                                  style: const TextStyle(
-                                    color: AppColors.lightCyan,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: AppColors.lightCyan,
-                                  ),
-                                  recognizer: TapGestureRecognizer()
-                                    ..onTap = () => _showTerms(context),
-                                ),
-                                const TextSpan(text: ' and '),
-                                TextSpan(
-                                  text: 'Privacy Policy',
-                                  style: const TextStyle(
-                                    color: AppColors.lightCyan,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: AppColors.lightCyan,
-                                  ),
-                                  recognizer: TapGestureRecognizer()
-                                    ..onTap = () => _showPrivacy(context),
-                                ),
-                                const TextSpan(text: '.'),
-                              ],
-                            ),
+                            ],
+                          )
+                        : Column(
+                            children: [
+                              buildIllustrationSection(context),
+                              const SizedBox(height: 36),
+                              buildAuthButtonsSection(context),
+                              const SizedBox(height: 32),
+                            ],
                           ),
-                        ).animate(delay: 650.ms).fadeIn(duration: 500.ms),
-
-                        const SizedBox(height: 32),
-                      ],
-                    ),
                   ),
                 ),
               ),

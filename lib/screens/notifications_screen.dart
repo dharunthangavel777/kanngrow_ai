@@ -18,6 +18,7 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _markingRead = false;
+  String? _selectedNotifId;
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
@@ -137,107 +138,476 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bgDark,
-      body: SafeArea(
-        child: Column(
-          children: [
-            ChatHeader(
-              isWide: false,
-              leading: widget.hideBackButton
-                  ? const SizedBox(width: 44)
-                  : HeaderBtn(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+    final isWide = MediaQuery.of(context).size.width >= 768;
+
+    if (isWide) {
+      return Scaffold(
+        backgroundColor: AppColors.bgDark,
+        body: SafeArea(
+          child: Row(
+            children: [
+              // Left Pane: Notifications List
+              SizedBox(
+                width: (MediaQuery.of(context).size.width * 0.45).clamp(350.0, 650.0),
+                child: Column(
+                  children: [
+                    ChatHeader(
+                      isWide: false,
+                      leading: widget.hideBackButton
+                          ? const SizedBox(width: 44)
+                          : HeaderBtn(
+                              onTap: () => Navigator.pop(context),
+                              child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+                            ),
+                      title: const Text(
+                        'Notifications',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                      trailing: _markingRead
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.lightCyan),
+                            )
+                          : HeaderBtn(
+                              onTap: _markAllRead,
+                              child: const Icon(Icons.done_all_rounded, color: AppColors.lightCyan, size: 20),
+                            ),
                     ),
-              title: const Text(
-                'Notifications',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              trailing: _markingRead
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.lightCyan),
-                    )
-                  : HeaderBtn(
-                      onTap: _markAllRead,
-                      child: const Icon(Icons.done_all_rounded, color: AppColors.lightCyan, size: 20),
-                    ),
-            ),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: _notificationsStream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(color: AppColors.lightCyan),
-                    );
-                  }
-
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return _buildEmptyState();
-                  }
-
-                  final docs = snapshot.data!.docs;
-
-                  return Align(
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 800),
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                        itemCount: docs.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final data = docs[index].data();
-                          final notifId = docs[index].id;
-                          final type = data['type'] as String? ?? 'general';
-                          final title = data['title'] as String? ?? 'Notification';
-                          final body = data['body'] as String? ?? '';
-                          final isRead = data['isRead'] as bool? ?? false;
-                          final createdAt = data['createdAt'] as String?;
-
-                          // ── Hot News gets its own distinct card ──────────────
-                          if (type == 'hot_news') {
-                            final rawItems = data['items'];
-                            final items = rawItems is List
-                                ? rawItems
-                                    .whereType<Map<String, dynamic>>()
-                                    .toList()
-                                : <Map<String, dynamic>>[];
-                            final hook = data['hook'] as String? ?? title;
-                            final tier = data['tier'] as String? ?? 'standard';
-
-                            return HotNewsCard(
-                              notifId: notifId,
-                              hook: hook,
-                              items: items,
-                              tier: tier,
-                              isRead: isRead,
-                              timeAgo: _timeAgo(createdAt),
-                              onTap: () => _markOneRead(notifId),
+                    Expanded(
+                      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        stream: _notificationsStream,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(color: AppColors.lightCyan),
                             );
                           }
+                          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                            return _buildEmptyState();
+                          }
+                          final docs = snapshot.data!.docs;
+                          
+                          // Default selected notification if none selected or if not present in current list
+                          if (_selectedNotifId == null && docs.isNotEmpty) {
+                            _selectedNotifId = docs.first.id;
+                          }
 
-                          return _buildNotificationCard(
-                            notifId: notifId,
-                            type: type,
-                            title: title,
-                            body: body,
-                            isRead: isRead,
-                            timeAgo: _timeAgo(createdAt),
+                          return ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            itemCount: docs.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final doc = docs[index];
+                              final data = doc.data();
+                              final notifId = doc.id;
+                              final type = data['type'] as String? ?? 'general';
+                              final title = data['title'] as String? ?? 'Notification';
+                              final isRead = data['isRead'] as bool? ?? false;
+                              final createdAt = data['createdAt'] as String?;
+                              final isSelected = _selectedNotifId == notifId;
+
+                              if (type == 'hot_news') {
+                                final hook = data['hook'] as String? ?? title;
+
+                                return GestureDetector(
+                                  onTap: () {
+                                    _markOneRead(notifId);
+                                    setState(() => _selectedNotifId = notifId);
+                                  },
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? AppColors.lightCyan.withValues(alpha: 0.08)
+                                          : AppColors.cardBg,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? AppColors.lightCyan
+                                            : (isRead ? AppColors.borderDark : const Color(0xFFFF6B00).withValues(alpha: 0.4)),
+                                        width: isSelected || !isRead ? 1.5 : 1.0,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.local_fire_department_rounded, color: Color(0xFFFF6B00), size: 20),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                hook,
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: isSelected || !isRead ? FontWeight.bold : FontWeight.normal,
+                                                  fontSize: 14,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(_timeAgo(createdAt), style: const TextStyle(color: AppColors.textGray, fontSize: 11)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return _buildNotificationCard(
+                                notifId: notifId,
+                                type: type,
+                                title: title,
+                                body: data['body'] as String? ?? '',
+                                isRead: isRead,
+                                timeAgo: _timeAgo(createdAt),
+                                selected: isSelected,
+                                onTapOverride: () {
+                                  _markOneRead(notifId);
+                                  setState(() => _selectedNotifId = notifId);
+                                },
+                              );
+                            },
                           );
                         },
                       ),
                     ),
-                  );
-                },
+                  ],
+                ),
+              ),
+              VerticalDivider(
+                color: Colors.white.withValues(alpha: 0.08),
+                width: 1,
+                thickness: 1,
+              ),
+              // Right Pane: Detail View
+              Expanded(
+                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: _notificationsStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: AppColors.lightCyan));
+                    }
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return const Center(child: Text('No details available', style: TextStyle(color: AppColors.textGray)));
+                    }
+                    final docs = snapshot.data!.docs;
+                    final selectedDoc = docs.firstWhere(
+                      (doc) => doc.id == _selectedNotifId,
+                      orElse: () => docs.first,
+                    );
+                    return _buildDetailPane(selectedDoc.data());
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.bgDark,
+      body: Stack(
+        children: [
+          // ── 1. Full-screen scrollable list ───────────────────────────
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: _notificationsStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: AppColors.lightCyan),
+                      );
+                    }
+
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return _buildEmptyState();
+                    }
+
+                    final docs = snapshot.data!.docs;
+
+                    return ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 60 + 8, 16, 32),
+                      itemCount: docs.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final data = docs[index].data();
+                        final notifId = docs[index].id;
+                        final type = data['type'] as String? ?? 'general';
+                        final title = data['title'] as String? ?? 'Notification';
+                        final body = data['body'] as String? ?? '';
+                        final isRead = data['isRead'] as bool? ?? false;
+                        final createdAt = data['createdAt'] as String?;
+
+                        if (type == 'hot_news') {
+                          final rawItems = data['items'];
+                          final items = rawItems is List
+                              ? rawItems.whereType<Map<String, dynamic>>().toList()
+                              : <Map<String, dynamic>>[];
+                          final hook = data['hook'] as String? ?? title;
+                          final tier = data['tier'] as String? ?? 'standard';
+
+                          return HotNewsCard(
+                            notifId: notifId,
+                            hook: hook,
+                            items: items,
+                            tier: tier,
+                            isRead: isRead,
+                            timeAgo: _timeAgo(createdAt),
+                            onTap: () => _markOneRead(notifId),
+                          );
+                        }
+
+                        return _buildNotificationCard(
+                          notifId: notifId,
+                          type: type,
+                          title: title,
+                          body: body,
+                          isRead: isRead,
+                          timeAgo: _timeAgo(createdAt),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+
+          // ── 2. Top Header ──────────────────────────────────────────
+          Positioned(
+            top: 0, left: 0, right: 0,
+            child: Container(
+              color: AppColors.bgDark,
+              child: ChatHeader(
+                isWide: false,
+                leading: widget.hideBackButton
+                    ? const SizedBox(width: 44)
+                    : HeaderBtn(
+                        onTap: () => Navigator.pop(context),
+                        child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+                      ),
+                title: const Text(
+                  'Notifications',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                trailing: _markingRead
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.lightCyan),
+                      )
+                    : HeaderBtn(
+                        onTap: _markAllRead,
+                        child: const Icon(Icons.done_all_rounded, color: AppColors.lightCyan, size: 20),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailPane(Map<String, dynamic> data) {
+    final type = data['type'] as String? ?? 'general';
+    final title = data['title'] as String? ?? 'Notification';
+    final body = data['body'] as String? ?? '';
+    final createdAt = data['createdAt'] as String?;
+
+    final color = _colorForType(type);
+    final icon = _iconForType(type);
+    final timeDisplay = _timeAgo(createdAt);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 36, color: color),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Outfit',
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      timeDisplay,
+                      style: const TextStyle(
+                        color: AppColors.textGray,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Divider(color: Colors.white.withValues(alpha: 0.08)),
+          const SizedBox(height: 24),
+          if (type == 'hot_news') ...[
+            _buildHotNewsDetails(data),
+          ] else ...[
+            Text(
+              body,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 15,
+                height: 1.6,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHotNewsDetails(Map<String, dynamic> data) {
+    final rawItems = data['items'];
+    final items = rawItems is List
+        ? rawItems.whereType<Map<String, dynamic>>().toList()
+        : <Map<String, dynamic>>[];
+    final tier = data['tier'] as String? ?? 'standard';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.lightCyan.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.lightCyan.withValues(alpha: 0.35), width: 0.8),
+              ),
+              child: Text(
+                'TIER: ${tier.toUpperCase()}',
+                style: const TextStyle(color: AppColors.lightCyan, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${items.length} Daily Insights',
+              style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        for (int i = 0; i < items.length; i++) ...[
+          if (i > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Divider(color: Colors.white.withValues(alpha: 0.05)),
+            ),
+          _buildDetailNewsItem(items[i]),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDetailNewsItem(Map<String, dynamic> item) {
+    final title = item['title'] as String? ?? '';
+    final body = item['body'] as String? ?? '';
+    final tag = item['tag'] as String? ?? 'Market';
+
+    Color tagColor(String tag) {
+      switch (tag.toLowerCase()) {
+        case 'market':
+          return const Color(0xFF60A5FA);
+        case 'opportunity':
+          return const Color(0xFF34D399);
+        case 'risk':
+          return const Color(0xFFF87171);
+        case 'trend':
+          return const Color(0xFFA78BFA);
+        case 'tool':
+          return const Color(0xFF22D3EE);
+        default:
+          return Colors.white54;
+      }
+    }
+
+    final color = tagColor(tag);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: color.withValues(alpha: 0.35), width: 0.8),
+              ),
+              child: Text(
+                tag.toUpperCase(),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  height: 1.3,
+                ),
               ),
             ),
           ],
         ),
-      ),
+        if (body.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13.5,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -248,23 +618,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     required String body,
     required bool isRead,
     required String timeAgo,
+    bool selected = false,
+    VoidCallback? onTapOverride,
   }) {
     final color = _colorForType(type);
     final icon = _iconForType(type);
 
     return GestureDetector(
-      onTap: () => _markOneRead(notifId),
+      onTap: onTapOverride ?? () => _markOneRead(notifId),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isRead
-              ? AppColors.cardBg
-              : AppColors.cardBg.withValues(alpha: 0.95),
+          color: selected
+              ? AppColors.lightCyan.withValues(alpha: 0.08)
+              : (isRead
+                  ? AppColors.cardBg
+                  : AppColors.cardBg.withValues(alpha: 0.95)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isRead ? AppColors.borderDark : color.withValues(alpha: 0.4),
-            width: isRead ? 1 : 1.5,
+            color: selected
+                ? AppColors.lightCyan
+                : (isRead ? AppColors.borderDark : color.withValues(alpha: 0.4)),
+            width: selected || !isRead ? 1.5 : 1.0,
           ),
         ),
         child: Row(
@@ -291,7 +667,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 14,
-                            fontWeight: isRead ? FontWeight.w500 : FontWeight.w700,
+                            fontWeight: selected || !isRead ? FontWeight.bold : FontWeight.w500,
                           ),
                         ),
                       ),
@@ -312,7 +688,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     Text(
                       body,
                       style: TextStyle(
-                        color: isRead ? AppColors.textGray : Colors.white70,
+                        color: selected ? Colors.white70 : (isRead ? AppColors.textGray : Colors.white70),
                         fontSize: 13,
                         height: 1.4,
                       ),

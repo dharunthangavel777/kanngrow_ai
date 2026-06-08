@@ -110,13 +110,15 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 768;
+
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       body: SafeArea(
         child: Align(
           alignment: Alignment.center,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
+            constraints: BoxConstraints(maxWidth: isWide ? 950 : 600),
             child: Consumer<OnboardingProvider>(
               builder: (context, provider, child) {
                 final totalPages = provider.questions.length;
@@ -219,119 +221,158 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen> {
 
   Widget _buildStep(OnboardingProvider provider, OnboardingQuestion question) {
     final answers = provider.answers[question.title] ?? [];
+    final isWide = MediaQuery.of(context).size.width >= 768;
+
+    Widget buildLeftPane() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (question.isDynamic)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.lightCyan.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.lightCyan.withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.auto_awesome_rounded, color: AppColors.lightCyan, size: 14),
+                  SizedBox(width: 6),
+                  Text(
+                    'AI Generated',
+                    style: TextStyle(
+                      color: AppColors.lightCyan,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ).animate().fadeIn().slideX(begin: -0.1, end: 0),
+          Text(
+            question.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Outfit',
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            question.subtitle,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 15,
+            ),
+          ),
+        ],
+      );
+    }
+
+    Widget buildRightPane() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (question.type == 'text') ...[
+            TextField(
+              controller: _textController,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              cursorColor: AppColors.lightCyan,
+              onChanged: (text) {
+                provider.saveTextAnswer(question.title, text);
+              },
+              decoration: InputDecoration(
+                hintText: 'Enter your answer...',
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                filled: true,
+                fillColor: AppColors.surfaceDark,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: AppColors.lightCyan),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              ),
+            ),
+            const SizedBox(height: 32),
+            _buildContinueButton(provider, answers.isNotEmpty),
+          ] else if (question.type == 'multi') ...[
+            ...question.options.map((opt) {
+              final isSelected = answers.contains(opt['title']);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: WizardOptionCard(
+                  title: opt['title'] as String,
+                  description: opt['desc'] as String,
+                  icon: opt['icon'] as IconData,
+                  isSelected: isSelected,
+                  onTap: () {
+                    provider.toggleAnswer(question.title, opt['title'] as String);
+                  },
+                ),
+              );
+            }),
+            const SizedBox(height: 24),
+            _buildContinueButton(provider, answers.isNotEmpty),
+          ] else ...[
+            ...question.options.map((opt) {
+              final isSelected = answers.contains(opt['title']);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: WizardOptionCard(
+                  title: opt['title'] as String,
+                  description: opt['desc'] as String,
+                  icon: opt['icon'] as IconData,
+                  isSelected: isSelected,
+                  onTap: () => _onOptionSelected(provider, question.title, opt['title'] as String),
+                ),
+              );
+            }),
+          ]
+        ],
+      );
+    }
+
+    if (isWide) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              flex: 5,
+              child: SingleChildScrollView(
+                child: buildLeftPane(),
+              ),
+            ),
+            const SizedBox(width: 48),
+            Expanded(
+              flex: 5,
+              child: SingleChildScrollView(
+                child: buildRightPane(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (question.isDynamic)
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.lightCyan.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.lightCyan.withValues(alpha: 0.3)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.auto_awesome_rounded, color: AppColors.lightCyan, size: 14),
-                    SizedBox(width: 6),
-                    Text(
-                      'AI Generated',
-                      style: TextStyle(
-                        color: AppColors.lightCyan,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ).animate().fadeIn().slideX(begin: -0.1, end: 0),
-            Text(
-              question.title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Outfit',
-                height: 1.2,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              question.subtitle,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 15,
-              ),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
-        
-        if (question.type == 'text') ...[
-          TextField(
-            controller: _textController,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-            cursorColor: AppColors.lightCyan,
-            onChanged: (text) {
-              provider.saveTextAnswer(question.title, text);
-            },
-            decoration: InputDecoration(
-              hintText: 'Enter your name...',
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-              filled: true,
-              fillColor: AppColors.surfaceDark,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: AppColors.lightCyan),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            ),
-          ),
-          const SizedBox(height: 32),
-          _buildContinueButton(provider, answers.isNotEmpty),
-        ] else if (question.type == 'multi') ...[
-          ...question.options.map((opt) {
-            final isSelected = answers.contains(opt['title']);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: WizardOptionCard(
-                title: opt['title'] as String,
-                description: opt['desc'] as String,
-                icon: opt['icon'] as IconData,
-                isSelected: isSelected,
-                onTap: () {
-                  provider.toggleAnswer(question.title, opt['title'] as String);
-                },
-              ),
-            );
-          }),
-          const SizedBox(height: 24),
-          _buildContinueButton(provider, answers.isNotEmpty),
-        ] else ...[
-          ...question.options.map((opt) {
-            final isSelected = answers.contains(opt['title']);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: WizardOptionCard(
-                title: opt['title'] as String,
-                description: opt['desc'] as String,
-                icon: opt['icon'] as IconData,
-                isSelected: isSelected,
-                onTap: () => _onOptionSelected(provider, question.title, opt['title'] as String),
-              ),
-            );
-          }),
-        ]
+        buildLeftPane(),
+        const SizedBox(height: 32),
+        buildRightPane(),
       ],
     );
   }

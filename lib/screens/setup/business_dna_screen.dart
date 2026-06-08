@@ -82,13 +82,14 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 768;
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       body: SafeArea(
         child: Align(
           alignment: Alignment.center,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
+            constraints: BoxConstraints(maxWidth: isWide ? 950 : 600),
             child: Column(
               children: [
                 // Progress Bar & Header
@@ -145,7 +146,7 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
                 ),
 
                 // Footer (Only for the Text Field step)
-                if (_currentIndex == 0)
+                if (_currentIndex == 0 && !isWide)
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: SizedBox(
@@ -177,9 +178,16 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
     );
   }
 
-  Widget _buildStepHeader(String title, String subtitle) {
-    return Column(
+  Widget _buildResponsiveStep({
+    required String title,
+    required String subtitle,
+    required Widget rightPane,
+  }) {
+    final isWide = MediaQuery.of(context).size.width >= 768;
+
+    final leftPane = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: isWide ? MainAxisAlignment.center : MainAxisAlignment.start,
       children: [
         Text(
           title,
@@ -199,37 +207,96 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
             fontSize: 15,
           ),
         ),
+      ],
+    );
+
+    if (isWide) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              flex: 5,
+              child: SingleChildScrollView(
+                child: leftPane,
+              ),
+            ),
+            const SizedBox(width: 48),
+            Expanded(
+              flex: 5,
+              child: SingleChildScrollView(
+                child: rightPane,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      children: [
+        leftPane,
         const SizedBox(height: 32),
+        rightPane,
       ],
     );
   }
 
   Widget _buildNameStep() {
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        _buildStepHeader('Name your store', 'You can always change this later if you are still brainstorming.'),
-        TextField(
-          controller: _nameController,
-          style: const TextStyle(color: Colors.white, fontSize: 18),
-          cursorColor: AppColors.lightCyan,
-          decoration: InputDecoration(
-            hintText: 'E.g. Kangrow AI',
-            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
-            filled: true,
-            fillColor: AppColors.surfaceCard,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
+    final isWide = MediaQuery.of(context).size.width >= 768;
+    return _buildResponsiveStep(
+      title: 'Name your store',
+      subtitle: 'You can always change this later if you are still brainstorming.',
+      rightPane: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _nameController,
+            style: const TextStyle(color: Colors.white, fontSize: 18),
+            cursorColor: AppColors.lightCyan,
+            decoration: InputDecoration(
+              hintText: 'E.g. Kangrow AI',
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2)),
+              filled: true,
+              fillColor: AppColors.surfaceCard,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: AppColors.lightCyan, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppColors.lightCyan, width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
           ),
-        ),
-      ],
+          if (isWide) ...[
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _nameController.text.trim().isNotEmpty ? _nextPage : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.lightCyan,
+                  disabledBackgroundColor: AppColors.lightCyan.withValues(alpha: 0.3),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: const Text(
+                  'Continue',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -243,11 +310,12 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
       {'title': 'Other', 'icon': Icons.more_horiz_rounded},
     ];
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        _buildStepHeader('What industry are you in?', 'This helps us understand the market dynamics.'),
-        ...industries.map((ind) => Padding(
+    return _buildResponsiveStep(
+      title: 'What industry are you in?',
+      subtitle: 'This helps us understand the market dynamics.',
+      rightPane: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: industries.map((ind) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: WizardOptionCard(
             title: ind['title'] as String,
@@ -255,8 +323,8 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
             isSelected: _industry == ind['title'],
             onTap: () => _onOptionSelected(() => setState(() => _industry = ind['title'] as String)),
           ),
-        )),
-      ],
+        )).toList(),
+      ),
     );
   }
 
@@ -268,11 +336,12 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
       {'title': 'Marketplace', 'desc': 'Connecting buyers and sellers'},
     ];
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        _buildStepHeader('Who is your target audience?', 'Select your primary customer base.'),
-        ...audiences.map((aud) => Padding(
+    return _buildResponsiveStep(
+      title: 'Who is your target audience?',
+      subtitle: 'Select your primary customer base.',
+      rightPane: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: audiences.map((aud) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: WizardOptionCard(
             title: aud['title'] as String,
@@ -280,8 +349,8 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
             isSelected: _targetAudience == aud['title'],
             onTap: () => _onOptionSelected(() => setState(() => _targetAudience = aud['title'] as String)),
           ),
-        )),
-      ],
+        )).toList(),
+      ),
     );
   }
 
@@ -293,11 +362,12 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
       {'title': '\$10k+', 'desc': 'I am well-funded'},
     ];
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        _buildStepHeader('What is your budget?', 'This will help the AI recommend affordable solutions.'),
-        ...budgets.map((bud) => Padding(
+    return _buildResponsiveStep(
+      title: 'What is your budget?',
+      subtitle: 'This will help the AI recommend affordable solutions.',
+      rightPane: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: budgets.map((bud) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: WizardOptionCard(
             title: bud['title'] as String,
@@ -305,8 +375,8 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
             isSelected: _budget == bud['title'],
             onTap: () => _onOptionSelected(() => setState(() => _budget = bud['title'] as String)),
           ),
-        )),
-      ],
+        )).toList(),
+      ),
     );
   }
 
@@ -318,11 +388,12 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
       {'title': 'Wholesale', 'desc': 'Sell in bulk to other businesses'},
     ];
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        _buildStepHeader('What is your business model?', 'How do you plan to make money?'),
-        ...models.map((mod) => Padding(
+    return _buildResponsiveStep(
+      title: 'What is your business model?',
+      subtitle: 'How do you plan to make money?',
+      rightPane: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: models.map((mod) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: WizardOptionCard(
             title: mod['title'] as String,
@@ -330,8 +401,8 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
             isSelected: _businessModel == mod['title'],
             onTap: () => _onOptionSelected(() => setState(() => _businessModel = mod['title'] as String)),
           ),
-        )),
-      ],
+        )).toList(),
+      ),
     );
   }
 
@@ -343,11 +414,12 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
       {'title': 'Unicorn / IPO', 'desc': 'Build a massive, venture-backed company'},
     ];
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        _buildStepHeader('What is your ultimate goal?', 'Where do you see this store in the future?'),
-        ...goals.map((goal) => Padding(
+    return _buildResponsiveStep(
+      title: 'What is your ultimate goal?',
+      subtitle: 'Where do you see this store in the future?',
+      rightPane: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: goals.map((goal) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: WizardOptionCard(
             title: goal['title'] as String,
@@ -355,8 +427,8 @@ class _BusinessDnaScreenState extends State<BusinessDnaScreen> {
             isSelected: _startupGoal == goal['title'],
             onTap: () => _onOptionSelected(() => setState(() => _startupGoal = goal['title'] as String)),
           ),
-        )),
-      ],
+        )).toList(),
+      ),
     );
   }
 }

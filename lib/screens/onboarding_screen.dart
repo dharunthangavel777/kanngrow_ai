@@ -96,6 +96,97 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final page = _pages[_current];
+    final isWide = MediaQuery.of(context).size.width >= 768;
+
+    Widget buildPageContent() {
+      return PageView.builder(
+        controller: _controller,
+        onPageChanged: (i) => setState(() => _current = i),
+        itemCount: _pages.length,
+        itemBuilder: (_, i) => _OnboardPage(page: _pages[i]),
+      );
+    }
+
+    Widget buildControlsSection() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Skip button
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: _goToAuth,
+              child: Text(
+                'Skip',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+          
+          const Spacer(),
+
+          // Dots
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_pages.length, (i) {
+              final active = i == _current;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: active ? 24 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: active
+                      ? page.accentColor
+                      : Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
+          ),
+
+          const SizedBox(height: 28),
+
+          // CTA button
+          GestureDetector(
+            onTap: _next,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: page.accentColor,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: page.accentColor.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  _current == _pages.length - 1
+                      ? 'Get Started'
+                      : 'Continue',
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const Spacer(),
+        ],
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,
@@ -128,100 +219,119 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Align(
               alignment: Alignment.center,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 500),
-                child: Column(
-                  children: [
-                    // Skip button
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 12, 20, 0),
-                        child: GestureDetector(
-                          onTap: _goToAuth,
-                          child: Text(
-                            'Skip',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.35),
-                              fontSize: 14,
+                constraints: BoxConstraints(maxWidth: isWide ? 900 : 500),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: isWide
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              flex: 6,
+                              child: buildPageContent(),
                             ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    // Page content
-                    Expanded(
-                      child: PageView.builder(
-                        controller: _controller,
-                        onPageChanged: (i) => setState(() => _current = i),
-                        itemCount: _pages.length,
-                        itemBuilder: (_, i) => _OnboardPage(page: _pages[i]),
-                      ),
-                    ),
-
-                    // Dots + button
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(32, 0, 32, 40),
-                      child: Column(
-                        children: [
-                          // Dots
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(_pages.length, (i) {
-                              final active = i == _current;
-                              return AnimatedContainer(
-                                duration: const Duration(milliseconds: 300),
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
-                                width: active ? 24 : 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: active
-                                      ? page.accentColor
-                                      : Colors.white.withValues(alpha: 0.18),
-                                  borderRadius: BorderRadius.circular(3),
+                            const SizedBox(width: 48),
+                            Expanded(
+                              flex: 4,
+                              child: Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: SizedBox(
+                                  height: 400,
+                                  child: buildControlsSection(),
                                 ),
-                              );
-                            }),
-                          ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            // Skip button
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(0, 12, 20, 0),
+                                child: GestureDetector(
+                                  onTap: _goToAuth,
+                                  child: Text(
+                                    'Skip',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.35),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
 
-                          const SizedBox(height: 28),
+                            // Page content
+                            Expanded(
+                              child: buildPageContent(),
+                            ),
 
-                          // CTA button
-                          GestureDetector(
-                            onTap: _next,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              decoration: BoxDecoration(
-                                color: page.accentColor,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: page.accentColor.withValues(alpha: 0.3),
-                                    blurRadius: 20,
-                                    spreadRadius: 2,
+                            // Dots + button
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(32, 0, 32, 40),
+                              child: Column(
+                                children: [
+                                  // Dots
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: List.generate(_pages.length, (i) {
+                                      final active = i == _current;
+                                      return AnimatedContainer(
+                                        duration: const Duration(milliseconds: 300),
+                                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                                        width: active ? 24 : 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: active
+                                              ? page.accentColor
+                                              : Colors.white.withValues(alpha: 0.18),
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                      );
+                                    }),
+                                  ),
+
+                                  const SizedBox(height: 28),
+
+                                  // CTA button
+                                  GestureDetector(
+                                    onTap: _next,
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 300),
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      decoration: BoxDecoration(
+                                        color: page.accentColor,
+                                        borderRadius: BorderRadius.circular(16),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: page.accentColor.withValues(alpha: 0.3),
+                                            blurRadius: 20,
+                                            spreadRadius: 2,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          _current == _pages.length - 1
+                                              ? 'Get Started'
+                                              : 'Continue',
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
-                              child: Center(
-                                child: Text(
-                                  _current == _pages.length - 1
-                                      ? 'Get Started'
-                                      : 'Continue',
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                          ],
+                        ),
                 ),
               ),
             ),
