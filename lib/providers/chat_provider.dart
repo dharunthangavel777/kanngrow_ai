@@ -23,6 +23,10 @@ class ChatProvider extends ChangeNotifier {
   bool _isTyping = false;
   bool get isTyping => _isTyping;
 
+  // Guard against duplicate message sends
+  bool _isSendingMessage = false;
+  bool get isSendingMessage => _isSendingMessage;
+
   // Loading state for initial fetch
   bool _isLoadingSessions = false;
   bool get isLoadingSessions => _isLoadingSessions;
@@ -144,8 +148,10 @@ class ChatProvider extends ChangeNotifier {
             _activeChatId = _chats.first.id;
             
             // Parse recent messages if backend provided them
-            if (recentMessages != null && _chats.first.messages.isEmpty) {
+            if (recentMessages != null) {
               final chat = _chats.first;
+              chat.messagesLoaded = true;
+              if (chat.messages.isEmpty) {
               for (final m in recentMessages) {
                 final role = m['role'] as String;
                 final text = m['content'] as String;
@@ -179,10 +185,11 @@ class ChatProvider extends ChangeNotifier {
                   }
                 }
               }
-            } else if (_activeChatId == null) {
-               // Fallback if recentMessages is missing
-               await selectChat(_chats.first.id);
             }
+          } else if (_activeChatId == null) {
+             // Fallback if recentMessages is missing
+             await selectChat(_chats.first.id);
+          }
           }
         }
       }
@@ -211,6 +218,7 @@ class ChatProvider extends ChangeNotifier {
           final List<dynamic> msgs = body['data']['messages'] ?? [];
           final chat = activeChat;
           if (chat != null && chat.id == chatId) {
+            chat.messagesLoaded = true;
             chat.messages.clear();
             for (final m in msgs) {
               final role = m['role'] as String;
@@ -257,6 +265,21 @@ class ChatProvider extends ChangeNotifier {
   }
 
   Future<void> createNewChat({bool isIdea = false, String? title}) async {
+    // Check if there is already an empty chat with matching isIdea type
+    Chat? emptyChat;
+    try {
+      emptyChat = _chats.firstWhere((c) => c.messagesLoaded && c.messages.isEmpty && c.isIdea == isIdea);
+    } catch (_) {}
+
+    if (emptyChat != null) {
+      _activeChatId = emptyChat.id;
+      if (title != null) {
+        emptyChat.title = title;
+      }
+      notifyListeners();
+      return;
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/chat/sessions'),
@@ -276,6 +299,7 @@ class ChatProvider extends ChangeNotifier {
             title: s['title'] as String,
             createdAt: DateTime.parse(s['createdAt'] as String),
             isIdea: s['isIdea'] == true,
+            messagesLoaded: true,
           );
           _chats.insert(0, newChat);
           _activeChatId = newChat.id;
@@ -290,6 +314,7 @@ class ChatProvider extends ChangeNotifier {
         id: 'chat_${DateTime.now().millisecondsSinceEpoch}',
         title: title ?? (isIdea ? 'New Business Idea' : 'New Chat'),
         isIdea: isIdea,
+        messagesLoaded: true,
       );
       _chats.insert(0, newChat);
       _activeChatId = newChat.id;
@@ -336,8 +361,11 @@ class ChatProvider extends ChangeNotifier {
     return tokens;
   }
 
-  Future<void> sendMessage(String text) async {
+  Future<void> sendMessage(String text, {bool isIdeaPrompt = false}) async {
     if (text.trim().isEmpty) return;
+    if (_isSendingMessage) return; // Guard against duplicate sends
+    _isSendingMessage = true;
+    notifyListeners();
 
     // If no active chat, create one on backend
     if (_activeChatId == null) {
@@ -350,7 +378,7 @@ class ChatProvider extends ChangeNotifier {
     }
 
     // Add user message locally first for instant UI response
-    final userMsg = Message.user(text);
+    final userMsg = Message.user(text, isIdeaPrompt: isIdeaPrompt);
     chat.messages.add(userMsg);
     notifyListeners();
 
@@ -397,10 +425,10 @@ class ChatProvider extends ChangeNotifier {
           for (final token in tokens) {
             assistantMsg.text = (assistantMsg.text ?? "") + token;
             tokenCount++;
-            if (tokenCount % 3 == 0 || tokenCount == tokens.length) {
+            if (tokenCount % 15 == 0 || tokenCount == tokens.length) {
               notifyListeners();
+              await Future.delayed(const Duration(milliseconds: 4));
             }
-            await Future.delayed(const Duration(milliseconds: 20));
           }
 
           // Append appropriate cards for visual modules
@@ -408,12 +436,15 @@ class ChatProvider extends ChangeNotifier {
             _appendCardsForModules(chat, modules, metadata);
           }
           notifyListeners();
+          _isSendingMessage = false;
           return;
         }
       }
     } catch (e) {
       debugPrint('Error sending message to backend: $e');
     }
+
+    _isSendingMessage = false;
 
     // Fallback if backend call fails
     _isTyping = false;
@@ -430,10 +461,10 @@ class ChatProvider extends ChangeNotifier {
     for (final token in tokens) {
       fallbackMsg.text = (fallbackMsg.text ?? "") + token;
       tokenCount++;
-      if (tokenCount % 3 == 0 || tokenCount == tokens.length) {
+      if (tokenCount % 15 == 0 || tokenCount == tokens.length) {
         notifyListeners();
+        await Future.delayed(const Duration(milliseconds: 4));
       }
-      await Future.delayed(const Duration(milliseconds: 20));
     }
   }
 
@@ -445,7 +476,7 @@ class ChatProvider extends ChangeNotifier {
   bool _darkMode = true;
   bool _notifications = true;
   bool _memoryTracking = true;
-  String _aiModel = 'GPT-4';
+  String _aiModel = 'Fast (GPT-4o-mini)';
   String _responseLength = 'Medium';
 
   bool get darkMode => _darkMode;

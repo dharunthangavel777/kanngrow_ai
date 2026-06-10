@@ -95,7 +95,7 @@ class SettingsSheet extends StatelessWidget {
                           icon: Icons.smart_toy_outlined,
                           label: 'AI Model',
                           value: provider.aiModel,
-                          options: ['GPT-4', 'GPT-3.5', 'Claude'],
+                          options: ['Fast (GPT-4o-mini)', 'GPT-4', 'GPT-3.5', 'Claude'],
                           onChanged: provider.setAiModel,
                         ),
                         _SelectItem(

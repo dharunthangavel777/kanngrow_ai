@@ -9,6 +9,7 @@ class Message {
   final List<String>? usedModules;
   final Map<String, dynamic>? metadata;
   final DateTime timestamp;
+  final bool isIdeaPrompt; // marks the automated onboarding idea prompt
 
   Message({
     required this.id,
@@ -16,13 +17,15 @@ class Message {
     this.text,
     this.usedModules,
     this.metadata,
+    this.isIdeaPrompt = false,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
-  static Message user(String text) => Message(
+  static Message user(String text, {bool isIdeaPrompt = false}) => Message(
         id: UniqueKey().toString(),
         type: MessageType.user,
         text: text,
+        isIdeaPrompt: isIdeaPrompt,
       );
 
   static Message assistant(String text, {List<String>? usedModules, Map<String, dynamic>? metadata}) => Message(

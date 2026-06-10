@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
@@ -155,11 +156,17 @@ class _MessageBubbleState extends State<MessageBubble> {
     final List<Widget> blocks = [];
     final lines = rawText.split('\n');
 
-    final defaultStyle = TextStyle(
-      color: isUser ? Colors.black : AppColors.textWhite,
-      fontSize: 14,
-      height: 1.45,
-    );
+    final defaultStyle = isUser 
+        ? const TextStyle(
+            color: Colors.black,
+            fontSize: 14,
+            height: 1.45,
+          )
+        : GoogleFonts.sourceSerif4(
+            color: AppColors.textWhite,
+            fontSize: 15, // Serif fonts usually need slightly larger sizes
+            height: 1.5, // Better line height for serif
+          );
 
     bool isInsideExpand = false;
     String expandTitle = '';
@@ -186,55 +193,63 @@ class _MessageBubbleState extends State<MessageBubble> {
         final alt = imageMatch.group(1) ?? '';
         final imageUrl = imageMatch.group(2) ?? '';
         if (imageUrl.isNotEmpty) {
-          blocks.add(Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 150,
-                        width: double.infinity,
-                        color: Colors.white.withOpacity(0.05),
-                        child: const Center(
-                          child: CircularProgressIndicator(color: AppColors.lightCyan),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 100,
-                        width: double.infinity,
-                        color: Colors.white.withOpacity(0.05),
-                        child: const Center(
-                          child: Icon(Icons.broken_image_rounded, color: Colors.white38),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                if (alt.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    alt,
-                    style: defaultStyle.copyWith(
-                      fontSize: 11,
-                      color: Colors.white54,
-                      fontStyle: FontStyle.italic,
+          final uri = Uri.tryParse(imageUrl);
+          final isGoogleDomain = uri != null && (
+              uri.host == 'google.com' ||
+              uri.host == 'www.google.com' ||
+              uri.host.endsWith('.google.com')
+          );
+          if (isGoogleDomain) {
+            blocks.add(Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 150,
+                          width: double.infinity,
+                          color: Colors.white.withOpacity(0.05),
+                          child: const Center(
+                            child: CircularProgressIndicator(color: AppColors.lightCyan),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 100,
+                          width: double.infinity,
+                          color: Colors.white.withOpacity(0.05),
+                          child: const Center(
+                            child: Icon(Icons.broken_image_rounded, color: Colors.white38),
+                          ),
+                        );
+                      },
                     ),
                   ),
+                  if (alt.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      alt,
+                      style: defaultStyle.copyWith(
+                        fontSize: 11,
+                        color: Colors.white54,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          ));
-          continue;
+              ),
+            ));
+          }
         }
+        continue;
       }
 
       // ─── SMART EXPANDABLE SECTIONS PARSER ───
@@ -471,7 +486,13 @@ class _MessageBubbleState extends State<MessageBubble> {
     final msg = widget.message;
     final isUser = msg.type == MessageType.user;
 
+    // ── Idea Prompt Compact Card (expandable) ────────────────────────────────
+    if (isUser && msg.isIdeaPrompt) {
+      return _IdeaPromptCard(message: msg);
+    }
+
     Widget child;
+
 
     if (msg.type == MessageType.ideaCard) {
       child = Padding(
@@ -1234,3 +1255,107 @@ class _FollowUpChip extends StatelessWidget {
   }
 }
 
+// ── Compact Expandable Idea Prompt Card ───────────────────────────────────────
+class _IdeaPromptCard extends StatefulWidget {
+  final Message message;
+  const _IdeaPromptCard({required this.message});
+
+  @override
+  State<_IdeaPromptCard> createState() => _IdeaPromptCardState();
+}
+
+class _IdeaPromptCardState extends State<_IdeaPromptCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = widget.message.text ?? '';
+    final lines = text.split('\n');
+    final profileStart = lines.indexWhere((l) => l.contains('My Profile:'));
+    final previewLines = profileStart >= 0
+        ? lines.skip(profileStart + 1).take(3).toList()
+        : lines.take(2).toList();
+    final preview = previewLines.where((l) => l.trim().isNotEmpty).join('\n');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: GestureDetector(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOut,
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.78,
+            ),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.lightCyan.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.lightCyan.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.lightbulb_outline_rounded,
+                        color: AppColors.lightCyan, size: 16),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Business Idea Request',
+                      style: TextStyle(
+                        color: AppColors.lightCyan,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.lightCyan.withValues(alpha: 0.6),
+                      size: 18,
+                    ),
+                  ],
+                ),
+                if (!_expanded) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    preview.isEmpty ? 'Based on your profile...' : preview,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      fontSize: 12,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tap to expand',
+                    style: TextStyle(
+                        color: AppColors.lightCyan.withValues(alpha: 0.5),
+                        fontSize: 10),
+                  ),
+                ],
+                if (_expanded) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    text,
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

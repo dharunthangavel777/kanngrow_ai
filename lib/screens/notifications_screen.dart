@@ -18,8 +18,6 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _markingRead = false;
-  String? _selectedNotifId;
-
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   Stream<QuerySnapshot<Map<String, dynamic>>> get _notificationsStream {
@@ -138,177 +136,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 768;
 
-    if (isWide) {
-      return Scaffold(
-        backgroundColor: AppColors.bgDark,
-        body: SafeArea(
-          child: Row(
-            children: [
-              // Left Pane: Notifications List
-              SizedBox(
-                width: (MediaQuery.of(context).size.width * 0.45).clamp(350.0, 650.0),
-                child: Column(
-                  children: [
-                    ChatHeader(
-                      isWide: false,
-                      leading: widget.hideBackButton
-                          ? const SizedBox(width: 44)
-                          : HeaderBtn(
-                              onTap: () => Navigator.pop(context),
-                              child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-                            ),
-                      title: const Text(
-                        'Notifications',
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                      trailing: _markingRead
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.lightCyan),
-                            )
-                          : HeaderBtn(
-                              onTap: _markAllRead,
-                              child: const Icon(Icons.done_all_rounded, color: AppColors.lightCyan, size: 20),
-                            ),
-                    ),
-                    Expanded(
-                      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                        stream: _notificationsStream,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(
-                              child: CircularProgressIndicator(color: AppColors.lightCyan),
-                            );
-                          }
-                          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                            return _buildEmptyState();
-                          }
-                          final docs = snapshot.data!.docs;
-                          
-                          // Default selected notification if none selected or if not present in current list
-                          if (_selectedNotifId == null && docs.isNotEmpty) {
-                            _selectedNotifId = docs.first.id;
-                          }
-
-                          return ListView.separated(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                            itemCount: docs.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 8),
-                            itemBuilder: (context, index) {
-                              final doc = docs[index];
-                              final data = doc.data();
-                              final notifId = doc.id;
-                              final type = data['type'] as String? ?? 'general';
-                              final title = data['title'] as String? ?? 'Notification';
-                              final isRead = data['isRead'] as bool? ?? false;
-                              final createdAt = data['createdAt'] as String?;
-                              final isSelected = _selectedNotifId == notifId;
-
-                              if (type == 'hot_news') {
-                                final hook = data['hook'] as String? ?? title;
-
-                                return GestureDetector(
-                                  onTap: () {
-                                    _markOneRead(notifId);
-                                    setState(() => _selectedNotifId = notifId);
-                                  },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? AppColors.lightCyan.withValues(alpha: 0.08)
-                                          : AppColors.cardBg,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? AppColors.lightCyan
-                                            : (isRead ? AppColors.borderDark : const Color(0xFFFF6B00).withValues(alpha: 0.4)),
-                                        width: isSelected || !isRead ? 1.5 : 1.0,
-                                      ),
-                                    ),
-                                    padding: const EdgeInsets.all(16),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.local_fire_department_rounded, color: Color(0xFFFF6B00), size: 20),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                hook,
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: isSelected || !isRead ? FontWeight.bold : FontWeight.normal,
-                                                  fontSize: 14,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(_timeAgo(createdAt), style: const TextStyle(color: AppColors.textGray, fontSize: 11)),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }
-
-                              return _buildNotificationCard(
-                                notifId: notifId,
-                                type: type,
-                                title: title,
-                                body: data['body'] as String? ?? '',
-                                isRead: isRead,
-                                timeAgo: _timeAgo(createdAt),
-                                selected: isSelected,
-                                onTapOverride: () {
-                                  _markOneRead(notifId);
-                                  setState(() => _selectedNotifId = notifId);
-                                },
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              VerticalDivider(
-                color: Colors.white.withValues(alpha: 0.08),
-                width: 1,
-                thickness: 1,
-              ),
-              // Right Pane: Detail View
-              Expanded(
-                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: _notificationsStream,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator(color: AppColors.lightCyan));
-                    }
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return const Center(child: Text('No details available', style: TextStyle(color: AppColors.textGray)));
-                    }
-                    final docs = snapshot.data!.docs;
-                    final selectedDoc = docs.firstWhere(
-                      (doc) => doc.id == _selectedNotifId,
-                      orElse: () => docs.first,
-                    );
-                    return _buildDetailPane(selectedDoc.data());
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,
@@ -374,6 +202,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           body: body,
                           isRead: isRead,
                           timeAgo: _timeAgo(createdAt),
+                          onTapOverride: () {
+                            _markOneRead(notifId);
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: AppColors.surfaceDark,
+                              constraints: const BoxConstraints(maxWidth: 600),
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                              ),
+                              builder: (context) => Container(
+                                constraints: BoxConstraints(
+                                  maxHeight: MediaQuery.of(context).size.height * 0.85,
+                                ),
+                                child: _buildDetailPane(data),
+                              ),
+                            );
+                          },
                         );
                       },
                     );

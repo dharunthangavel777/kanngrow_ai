@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../app_theme.dart';
 import '../widgets/chat/chat_header.dart';
 import '../utils/network_config.dart';
+import '../widgets/layout/responsive_layout.dart';
 import '../widgets/skeleton/dashboard_skeleton.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
@@ -72,7 +73,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 768;
+    final isWide = ResponsiveLayout.isDesktop(context) || ResponsiveLayout.isTablet(context);
 
     final storeName = _profile?['storeName'] ?? 'My E-commerce Store';
     final stageRaw = _profile?['stage'] ?? 'Concept';
@@ -105,10 +106,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           children: [
             ChatHeader(
               isWide: isWide,
-              leading: HeaderBtn(
-                onTap: () => Navigator.pop(context),
-                child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-              ),
+              leading: const SizedBox(width: 48), // Empty space instead of back button
               title: Text(
                 storeName,
                 style: const TextStyle(
@@ -298,7 +296,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                // Navigate to chat tab
+                // Since this is in IndexedStack, we would need to pass a callback
+                // or just let the user use the navigation rail/bottom bar.
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Use the navigation bar to switch to Chat')),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.lightCyan,
                 foregroundColor: Colors.black,
@@ -368,7 +373,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   ),
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textGray, size: 18),
-                onTap: () => Navigator.pop(context),
+                onTap: () {}, // No longer pops context
               ),
               if (!isLast)
                 Divider(height: 1, indent: 64, color: AppColors.borderDark),
@@ -502,7 +507,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'This alert was personalized for your business industry profile by the Kangrow intelligence engine.',
+              'This alert was personalized for your business industry profile by the Kanngrow intelligence engine.',
               style: TextStyle(color: AppColors.textGray, fontSize: 11, height: 1.35),
             ),
           ],

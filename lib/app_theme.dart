@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
   // Backgrounds
@@ -34,36 +35,31 @@ class AppColors {
 }
 
 class AppTextStyles {
-  static TextStyle title(BuildContext context) => const TextStyle(
-        fontFamily: 'Outfit',
+  static TextStyle title(BuildContext context) => GoogleFonts.poppins(
         color: AppColors.textWhite,
         fontSize: 18,
         fontWeight: FontWeight.bold,
       );
 
-  static TextStyle bodyBold(BuildContext context) => const TextStyle(
-        fontFamily: 'Outfit',
+  static TextStyle bodyBold(BuildContext context) => GoogleFonts.poppins(
         color: AppColors.textWhite,
         fontSize: 14,
         fontWeight: FontWeight.w600,
       );
 
-  static TextStyle body(BuildContext context) => const TextStyle(
-        fontFamily: 'Outfit',
+  static TextStyle body(BuildContext context) => GoogleFonts.poppins(
         color: AppColors.textWhite,
         fontSize: 14,
         fontWeight: FontWeight.normal,
       );
 
-  static TextStyle caption(BuildContext context) => const TextStyle(
-        fontFamily: 'Outfit',
+  static TextStyle caption(BuildContext context) => GoogleFonts.poppins(
         color: AppColors.textGray,
         fontSize: 13,
         fontWeight: FontWeight.normal,
       );
 
-  static TextStyle small(BuildContext context) => const TextStyle(
-        fontFamily: 'Outfit',
+  static TextStyle small(BuildContext context) => GoogleFonts.poppins(
         color: AppColors.textLightGray,
         fontSize: 11,
         fontWeight: FontWeight.w500,
@@ -82,8 +78,7 @@ ThemeData buildAppTheme() {
       onPrimary: Colors.black,
       onSurface: AppColors.textWhite,
     ),
-    textTheme: ThemeData.dark().textTheme.apply(
-      fontFamily: 'Outfit',
+    textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme).apply(
       bodyColor: AppColors.textWhite,
       displayColor: AppColors.textWhite,
     ),

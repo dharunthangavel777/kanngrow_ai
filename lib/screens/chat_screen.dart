@@ -7,8 +7,8 @@ import '../widgets/chat/input_bar.dart';
 import '../widgets/chat/hero_header.dart';
 import '../widgets/chat/chat_header.dart';
 import '../widgets/sidebar/sidebar_widget.dart';
-import '../widgets/floating_action_menu.dart';
 import '../widgets/skeleton/chat_skeleton.dart';
+import '../widgets/layout/responsive_layout.dart';
 
 // Collapsed header height
 const double _kHeaderHeight = 60.0;
@@ -32,11 +32,14 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<ChatProvider>();
-      provider.fetchSessions().then((_) {
-        if (provider.activeChatId == null && provider.chats.isNotEmpty) {
-          provider.selectChat(provider.chats.first.id);
-        }
-      });
+      // Prevent wiping the chat state if we just navigated here while a message is actively sending (e.g., from onboarding)
+      if (!provider.isSendingMessage) {
+        provider.fetchSessions().then((_) {
+          if (provider.activeChatId == null && provider.chats.isNotEmpty) {
+            provider.selectChat(provider.chats.first.id);
+          }
+        });
+      }
     });
   }
 
@@ -62,7 +65,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 768;
+    final isWide = ResponsiveLayout.isDesktop(context) || ResponsiveLayout.isTablet(context);
 
     return Consumer<ChatProvider>(
       builder: (context, provider, _) {
@@ -101,7 +104,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   scrollController: _scrollController,
                                   isWide: isWide,
                                 )
-                              : HeroHeader(isCollapsed: false, isWide: isWide),
+                              : HeroHeader(isWide: isWide),
                     ),
 
                     // ── 2. TOP gradient ──────────────────────────────────────
@@ -161,8 +164,6 @@ class _ChatScreenState extends State<ChatScreen> {
                       child: InputBar(),
                     ),
 
-                    // ── 6. Draggable Floating Menu ─────────────────────
-                    const FloatingActionMenu(),
                   ],
                 ),
               ),

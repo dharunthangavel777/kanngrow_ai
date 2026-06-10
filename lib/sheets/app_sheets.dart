@@ -1433,7 +1433,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                       label: 'AI Model',
                       value: _model,
                       onTap: () => _pick(context, 'AI Model',
-                          ['Kangrow 2.0', 'Kangrow Pro', 'GPT-4', 'Claude 3'],
+                          ['Kangrow 2.0', 'Kangrow Pro', 'Fast (GPT-4o-mini)', 'GPT-4', 'Claude 3'],
                           (v) {
                             setState(() => _model = v);
                             _savePreference('model', v);

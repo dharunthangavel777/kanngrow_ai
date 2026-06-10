@@ -25,7 +25,11 @@ class AppToast {
       ..showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          margin: EdgeInsets.only(
+            bottom: 24,
+            left: MediaQuery.of(context).size.width > 500 ? (MediaQuery.of(context).size.width - 400) / 2 : 16,
+            right: MediaQuery.of(context).size.width > 500 ? (MediaQuery.of(context).size.width - 400) / 2 : 16,
+          ),
           padding: EdgeInsets.zero,
           duration: const Duration(milliseconds: 2500),
           backgroundColor: Colors.transparent,

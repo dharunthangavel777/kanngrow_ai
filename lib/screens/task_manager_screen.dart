@@ -3,6 +3,7 @@ import '../app_theme.dart';
 import '../widgets/chat/chat_header.dart';
 import '../widgets/skeleton/task_skeleton.dart';
 
+import '../widgets/layout/responsive_layout.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../utils/network_config.dart';
@@ -69,7 +70,7 @@ class _TaskManagerScreenState extends State<TaskManagerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 768;
+    final isWide = ResponsiveLayout.isDesktop(context) || ResponsiveLayout.isTablet(context);
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,
@@ -78,11 +79,7 @@ class _TaskManagerScreenState extends State<TaskManagerScreen> {
           children: [
             ChatHeader(
               isWide: isWide,
-              leading: HeaderBtn(
-                onTap: () => Navigator.pop(context),
-                child: const Icon(Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white, size: 18),
-              ),
+              leading: const SizedBox(width: 48),
               title: const Text(
                 'Task Manager',
                 style: TextStyle(
