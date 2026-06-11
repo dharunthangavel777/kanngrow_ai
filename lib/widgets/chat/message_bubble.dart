@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
@@ -162,10 +161,10 @@ class _MessageBubbleState extends State<MessageBubble> {
             fontSize: 14,
             height: 1.45,
           )
-        : GoogleFonts.sourceSerif4(
+        : const TextStyle(
             color: AppColors.textWhite,
-            fontSize: 15, // Serif fonts usually need slightly larger sizes
-            height: 1.5, // Better line height for serif
+            fontSize: 14,
+            height: 1.45,
           );
 
     bool isInsideExpand = false;

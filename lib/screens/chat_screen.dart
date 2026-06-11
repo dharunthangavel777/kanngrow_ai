@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../app_theme.dart';
 import '../providers/chat_provider.dart';
+import '../providers/user_provider.dart';
 import '../widgets/chat/message_bubble.dart';
 import '../widgets/chat/input_bar.dart';
 import '../widgets/chat/hero_header.dart';
@@ -32,6 +33,10 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<ChatProvider>();
+      final userProvider = context.read<UserProvider>();
+      
+      userProvider.fetchUserData();
+      
       // Prevent wiping the chat state if we just navigated here while a message is actively sending (e.g., from onboarding)
       if (!provider.isSendingMessage) {
         provider.fetchSessions().then((_) {
@@ -158,7 +163,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       ),
 
-                    // ── 5. Floating input bar ──────────────────────────
+
+
+                    // ── 6. Floating input bar ──────────────────────────
                     const Positioned(
                       bottom: 0, left: 0, right: 0,
                       child: InputBar(),

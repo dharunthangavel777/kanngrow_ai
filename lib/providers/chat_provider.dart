@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../models/chat.dart';
 import '../models/message.dart';
-
+import '../models/api_error.dart';
 import '../utils/network_config.dart';
 
 class ChatProvider extends ChangeNotifier {
@@ -18,6 +18,20 @@ class ChatProvider extends ChangeNotifier {
   // Active chat
   String? _activeChatId;
   String? get activeChatId => _activeChatId;
+
+  // Active context pill
+  ContextPillModel? _activeContextPill;
+  ContextPillModel? get activeContextPill => _activeContextPill;
+
+  void setActiveContextPill(ContextPillModel? pill) {
+    _activeContextPill = pill;
+    notifyListeners();
+  }
+
+  void clearActiveContextPill() {
+    _activeContextPill = null;
+    notifyListeners();
+  }
 
   // Typing indicator
   bool _isTyping = false;
@@ -152,41 +166,55 @@ class ChatProvider extends ChangeNotifier {
               final chat = _chats.first;
               chat.messagesLoaded = true;
               if (chat.messages.isEmpty) {
-              for (final m in recentMessages) {
-                final role = m['role'] as String;
-                final text = m['content'] as String;
-                final timestamp = DateTime.parse(m['createdAt'] as String);
-                
-                List<String>? modules;
-                if (m['metadata'] != null && m['metadata']['usedModules'] != null) {
-                  modules = List<String>.from(m['metadata']['usedModules']);
-                }
-
-                if (role == 'user') {
-                  chat.messages.add(Message(
-                    id: m['id'] as String,
-                    type: MessageType.user,
-                    text: text,
-                    timestamp: timestamp,
-                  ));
-                } else {
-                  final metadata = m['metadata'] as Map<String, dynamic>?;
-                  chat.messages.add(Message(
-                    id: m['id'] as String,
-                    type: MessageType.assistant,
-                    text: text,
-                    usedModules: modules,
-                    metadata: metadata,
-                    timestamp: timestamp,
-                  ));
+                final List<dynamic> sortedRecent = List.from(recentMessages);
+                sortedRecent.sort((a, b) {
+                  final timeA = DateTime.parse(a['createdAt'] as String);
+                  final timeB = DateTime.parse(b['createdAt'] as String);
+                  final cmp = timeA.compareTo(timeB);
+                  if (cmp != 0) return cmp;
                   
-                  if (modules != null) {
-                    _appendCardsForModules(chat, modules, metadata);
+                  final roleA = a['role'] as String;
+                  final roleB = b['role'] as String;
+                  if (roleA == 'user' && roleB != 'user') return -1;
+                  if (roleA != 'user' && roleB == 'user') return 1;
+                  return 0;
+                });
+
+                for (final m in sortedRecent) {
+                  final role = m['role'] as String;
+                  final text = m['content'] as String;
+                  final timestamp = DateTime.parse(m['createdAt'] as String);
+                  
+                  List<String>? modules;
+                  if (m['metadata'] != null && m['metadata']['usedModules'] != null) {
+                    modules = List<String>.from(m['metadata']['usedModules']);
+                  }
+
+                  if (role == 'user') {
+                    chat.messages.add(Message(
+                      id: m['id'] as String,
+                      type: MessageType.user,
+                      text: text,
+                      timestamp: timestamp,
+                    ));
+                  } else {
+                    final metadata = m['metadata'] as Map<String, dynamic>?;
+                    chat.messages.add(Message(
+                      id: m['id'] as String,
+                      type: MessageType.assistant,
+                      text: text,
+                      usedModules: modules,
+                      metadata: metadata,
+                      timestamp: timestamp,
+                    ));
+                    
+                    if (modules != null) {
+                      _appendCardsForModules(chat, modules, metadata);
+                    }
                   }
                 }
               }
-            }
-          } else if (_activeChatId == null) {
+            } else if (_activeChatId == null) {
              // Fallback if recentMessages is missing
              await selectChat(_chats.first.id);
           }
@@ -220,7 +248,22 @@ class ChatProvider extends ChangeNotifier {
           if (chat != null && chat.id == chatId) {
             chat.messagesLoaded = true;
             chat.messages.clear();
-            for (final m in msgs) {
+
+            final List<dynamic> sortedMsgs = List.from(msgs);
+            sortedMsgs.sort((a, b) {
+              final timeA = DateTime.parse(a['createdAt'] as String);
+              final timeB = DateTime.parse(b['createdAt'] as String);
+              final cmp = timeA.compareTo(timeB);
+              if (cmp != 0) return cmp;
+              
+              final roleA = a['role'] as String;
+              final roleB = b['role'] as String;
+              if (roleA == 'user' && roleB != 'user') return -1;
+              if (roleA != 'user' && roleB == 'user') return 1;
+              return 0;
+            });
+
+            for (final m in sortedMsgs) {
               final role = m['role'] as String;
               final text = m['content'] as String;
               final timestamp = DateTime.parse(m['createdAt'] as String);
@@ -439,31 +482,39 @@ class ChatProvider extends ChangeNotifier {
           _isSendingMessage = false;
           return;
         }
+      } else {
+        // Parse the error using the new ApiError model
+        final body = jsonDecode(response.body);
+        _isTyping = false;
+        _isSendingMessage = false;
+        
+        // Remove the user's message since it wasn't processed
+        chat.messages.removeLast();
+        notifyListeners();
+        
+        throw ApiError.fromResponseBody(body);
       }
     } catch (e) {
       debugPrint('Error sending message to backend: $e');
-    }
-
-    _isSendingMessage = false;
-
-    // Fallback if backend call fails
-    _isTyping = false;
-    final fallbackMsg = Message.assistant(
-      "",
-      usedModules: ['AI Decision Engine'],
-    );
-    chat.messages.add(fallbackMsg);
-    notifyListeners();
-
-    const fallbackText = 'Sorry, I had trouble reaching the AI co-founder brain. Please verify that the backend server is running locally on port 3000.';
-    final tokens = _splitIntoWords(fallbackText);
-    int tokenCount = 0;
-    for (final token in tokens) {
-      fallbackMsg.text = (fallbackMsg.text ?? "") + token;
-      tokenCount++;
-      if (tokenCount % 15 == 0 || tokenCount == tokens.length) {
-        notifyListeners();
-        await Future.delayed(const Duration(milliseconds: 4));
+      _isTyping = false;
+      _isSendingMessage = false;
+      
+      // Remove the user's message since it wasn't processed
+      if (chat.messages.isNotEmpty && chat.messages.last == userMsg) {
+        chat.messages.removeLast();
+      }
+      notifyListeners();
+      
+      if (e is ApiError) {
+        rethrow;
+      } else {
+        throw ApiError(
+          type: 'NETWORK',
+          code: 'ERR_NETWORK',
+          userMessage: 'Network error. Please check your connection and try again.',
+          nextAction: 'RETRY',
+          retryable: true,
+        );
       }
     }
   }
@@ -509,4 +560,16 @@ class ChatProvider extends ChangeNotifier {
     _responseLength = v;
     notifyListeners();
   }
+}
+
+class ContextPillModel {
+  final IconData icon;
+  final String label;
+  final String prompt;
+
+  const ContextPillModel({
+    required this.icon,
+    required this.label,
+    required this.prompt,
+  });
 }

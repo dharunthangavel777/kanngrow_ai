@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import '../../app_theme.dart';
 import '../../screens/profile_screen.dart';
 import '../../screens/notifications_screen.dart';
+import '../../providers/user_provider.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reusable compact header — used by ChatScreen and ProfileScreen
@@ -63,6 +65,8 @@ class ChatHeader extends StatelessWidget {
                   const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      _ChatsRemainingCounter(),
+                      SizedBox(width: 12),
                       _NotificationBell(),
                       SizedBox(width: 12),
                       _ProfileAvatar(size: 36),
@@ -237,6 +241,45 @@ class _NotificationBell extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chats remaining today counter widget
+// ─────────────────────────────────────────────────────────────────────────────
+class _ChatsRemainingCounter extends StatelessWidget {
+  const _ChatsRemainingCounter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, _) {
+        if (userProvider.subscription == null) return const SizedBox.shrink();
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.cardBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderDark, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.bolt_rounded, color: AppColors.lightCyan, size: 14),
+              const SizedBox(width: 4),
+              Text(
+                '${userProvider.remainingChats}/${userProvider.subscription!.dailyRequestsLimit}',
+                style: const TextStyle(
+                  color: AppColors.textWhite,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

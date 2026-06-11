@@ -8,9 +8,6 @@ import '../../providers/onboarding_provider.dart';
 import '../../screens/setup/dynamic_onboarding_screen.dart';
 import '../chat/chat_header.dart';
 import '../../screens/profile_screen.dart';
-import '../../screens/workspace_screen.dart';
-import '../../screens/task_manager_screen.dart';
-import '../../screens/home_dashboard_screen.dart';
 
 class SidebarWidget extends StatelessWidget {
   const SidebarWidget({super.key});
@@ -523,33 +520,6 @@ class _SidebarFooter extends StatelessWidget {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                ),
-              ),
-              _FooterDivider(),
-              _FooterRow(
-                icon: Icons.folder_outlined,
-                label: 'Workspace',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const WorkspaceScreen()),
-                ),
-              ),
-              _FooterDivider(),
-              _FooterRow(
-                icon: Icons.check_circle_outline_rounded,
-                label: 'Task Manager',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TaskManagerScreen()),
-                ),
-              ),
-              _FooterDivider(),
-              _FooterRow(
-                icon: Icons.dashboard_outlined,
-                label: 'Home Dashboard',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const HomeDashboardScreen()),
                 ),
               ),
               _FooterDivider(),

@@ -4,6 +4,7 @@ import 'app_theme.dart';
 import 'providers/chat_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/user_provider.dart';
 import 'widgets/auth_wrapper.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -22,6 +23,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => OnboardingProvider()),
       ],

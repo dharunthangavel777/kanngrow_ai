@@ -203,10 +203,12 @@ class _QuickActionChipState extends State<_QuickActionChip> {
             return;
           }
           final provider = context.read<ChatProvider>();
-          provider.inputController.text = widget.prompt;
-          provider.inputController.selection = TextSelection.fromPosition(
-            TextPosition(offset: widget.prompt.length),
-          );
+          provider.setActiveContextPill(ContextPillModel(
+            icon: widget.isLocked ? Icons.lock_outline_rounded : widget.icon,
+            label: widget.label,
+            prompt: widget.prompt,
+          ));
+          provider.inputController.clear();
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),

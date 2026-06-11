@@ -71,11 +71,12 @@ class _SuggestionPillState extends State<_SuggestionPill> {
       child: GestureDetector(
         onTap: () {
           final provider = context.read<ChatProvider>();
-          provider.inputController.text = widget.prompt;
-          // Move cursor to the end of the text
-          provider.inputController.selection = TextSelection.fromPosition(
-            TextPosition(offset: widget.prompt.length),
-          );
+          provider.setActiveContextPill(ContextPillModel(
+            icon: widget.icon,
+            label: widget.label,
+            prompt: widget.prompt,
+          ));
+          provider.inputController.clear();
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),

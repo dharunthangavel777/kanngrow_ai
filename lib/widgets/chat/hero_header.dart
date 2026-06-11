@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../app_theme.dart';
-import 'hero_suggestions.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main hero header
@@ -86,17 +85,6 @@ class _ExpandedContent extends StatelessWidget {
                 .animate()
                 .fadeIn(duration: 700.ms, delay: 100.ms)
                 .slideY(begin: 0.06, end: 0, duration: 600.ms, delay: 100.ms),
-    
-            const SizedBox(height: 28),
-    
-            // ── Suggestion chips ──────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: const HeroSuggestionGrid(),
-            )
-                .animate()
-                .fadeIn(duration: 600.ms, delay: 300.ms)
-                .slideY(begin: 0.06, end: 0, duration: 500.ms, delay: 300.ms),
     
             const Spacer(),
     

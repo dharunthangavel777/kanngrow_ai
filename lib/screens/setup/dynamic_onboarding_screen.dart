@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -23,6 +24,16 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen>
   int _currentIndex = 0;
   late AnimationController _loadingMsgController;
   int _loadingMsgIndex = 0;
+  Timer? _autoAdvanceTimer;
+
+  void _startAutoAdvance(OnboardingProvider provider) {
+    _autoAdvanceTimer?.cancel();
+    _autoAdvanceTimer = Timer(const Duration(seconds: 1), () {
+      if (mounted) {
+        _nextPage(provider);
+      }
+    });
+  }
 
   // Cycling messages for loading overlay
   static const List<String> _questionLoadingMessages = [
@@ -56,12 +67,27 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen>
 
     // Pre-fill name from Google auth
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<OnboardingProvider>().preFillNameFromAuth();
+      if (!mounted) return;
+      final provider = context.read<OnboardingProvider>();
+      provider.preFillNameFromAuth();
+
+      // If all questions are pre-filled (e.g. New Idea), skip straight to next
+      if (provider.questions.isEmpty) {
+        _nextPage(provider);
+      } else if (!provider.isIdeaMode &&
+                 _currentIndex == 0 &&
+                 provider.answers['What\'s your full name?']?.isNotEmpty == true &&
+                 provider.questions.length > 1) {
+        // Skip the name question visually by jumping to the location page
+        _pageController.jumpToPage(1);
+        setState(() => _currentIndex = 1);
+      }
     });
   }
 
   @override
   void dispose() {
+    _autoAdvanceTimer?.cancel();
     _pageController.dispose();
     _textController.dispose();
     _citySearchController.dispose();
@@ -85,7 +111,7 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen>
     if (provider.isSubmitting) return;
     final chatProvider = context.read<ChatProvider>();
 
-    final isLastKnownPage = _currentIndex == provider.questions.length - 1;
+    final isLastKnownPage = provider.questions.isEmpty || _currentIndex >= provider.questions.length - 1;
 
     if (!isLastKnownPage) {
       _animateToNext();
@@ -96,6 +122,7 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen>
     provider.setSubmitting(true);
     _startLoadingAnimation();
 
+    final wasEmptyBefore = provider.questions.isEmpty;
     final hasNext = await provider.generateNextQuestion();
 
     _stopLoadingAnimation();
@@ -104,8 +131,10 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen>
     if (!mounted) return;
 
     if (hasNext) {
-      // AI returned a new question — animate to it
-      _animateToNext();
+      // AI returned a new question
+      if (!wasEmptyBefore) {
+        _animateToNext();
+      }
       return;
     }
 
@@ -190,10 +219,9 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen>
 
   void _onOptionSelected(
       OnboardingProvider provider, String questionTitle, String answerTitle) {
+    if (provider.isSubmitting) return;
     provider.saveAnswer(questionTitle, answerTitle);
-    Future.delayed(const Duration(milliseconds: 250), () {
-      if (mounted) _nextPage(provider);
-    });
+    _startAutoAdvance(provider);
   }
 
   void _onPageChanged(int index, OnboardingProvider provider) {
@@ -473,10 +501,9 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen>
           controller: _citySearchController,
           selectedCity: answers.firstOrNull,
           onSelected: (city) {
+            if (provider.isSubmitting) return;
             provider.saveAnswer(question.title, city);
-            Future.delayed(const Duration(milliseconds: 250), () {
-              if (mounted) _nextPage(provider);
-            });
+            _startAutoAdvance(provider);
           },
         );
       }
@@ -518,22 +545,22 @@ class _DynamicOnboardingScreenState extends State<DynamicOnboardingScreen>
       if (question.type == 'multi') {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ...question.options.map((opt) {
-              final isSelected = answers.contains(opt['title']);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _OptionCard(
-                  title: opt['title'] as String,
-                  description: opt['desc'] as String,
-                  isSelected: isSelected,
-                  onTap: () => provider.toggleAnswer(question.title, opt['title'] as String),
-                ),
-              );
-            }),
-            const SizedBox(height: 24),
-            _buildContinueButton(provider, answers.isNotEmpty),
-          ],
+          children: question.options.map((opt) {
+            final isSelected = answers.contains(opt['title']);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _OptionCard(
+                title: opt['title'] as String,
+                description: opt['desc'] as String,
+                isSelected: isSelected,
+                onTap: () {
+                  if (provider.isSubmitting) return;
+                  provider.toggleAnswer(question.title, opt['title'] as String);
+                  _startAutoAdvance(provider);
+                },
+              ),
+            );
+          }).toList(),
         );
       }
 
@@ -662,7 +689,7 @@ class _CitySearchFieldState extends State<_CitySearchField> {
     }
     final q = query.toLowerCase();
     setState(() {
-      _filtered = kIndiaCities.where((c) => c.toLowerCase().startsWith(q)).take(8).toList();
+      _filtered = kIndiaCities.where((c) => c.toLowerCase().contains(q)).take(8).toList();
       _showDropdown = _filtered.isNotEmpty;
     });
   }

@@ -56,11 +56,20 @@ class OnboardingProvider extends ChangeNotifier {
   bool _isIdeaMode = false;
   int _aiQuestionsAsked = 0;
 
-  List<OnboardingQuestion> get questions {
+  List<OnboardingQuestion> get questions {   
     final neededStatic = _staticQuestions.where((q) {
-      if (_isIdeaMode && _answers.containsKey(q.title) && _answers[q.title]!.isNotEmpty) {
+      final isAnswered = _answers.containsKey(q.title) && _answers[q.title]!.isNotEmpty;
+      
+      // Always skip name if we already have it from auth
+      if (q.title == 'What\'s your full name?' && isAnswered) {
         return false;
       }
+      
+      // In idea mode, skip location if we already have it
+      if (_isIdeaMode && q.title == 'Which city are you based in?' && isAnswered) {
+        return false;
+      }
+      
       return true;
     }).toList();
     return [...neededStatic, ..._aiQuestions];
@@ -121,7 +130,58 @@ class OnboardingProvider extends ChangeNotifier {
   /// Fetch the next AI-generated question from backend.
   /// Returns true if a new question was added; false if complete.
   Future<bool> generateNextQuestion() async {
-    // We only ask Name and Location initially, so immediately proceed to idea generation.
+    if (_aiQuestionsAsked >= 15 || (_aiQuestions.isNotEmpty && _aiQuestions.last.stopAfterThis)) {
+      return false;
+    }
+
+    _isQuestionsLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/onboarding/next-question'),
+        headers: await NetworkConfig.getHeaders(),
+        body: jsonEncode({
+          'answeredQuestions': flatAnswers,
+          'questionsAsked': _aiQuestionsAsked,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      _isQuestionsLoading = false;
+
+      if (response.statusCode != 200) {
+        notifyListeners();
+        return false;
+      }
+
+      final body = jsonDecode(response.body);
+      if (body['success'] == true && body['data'] != null && body['data']['question'] != null) {
+        final qData = body['data']['question'];
+        
+        final newQuestion = OnboardingQuestion(
+          id: qData['id']?.toString() ?? '',
+          title: qData['title']?.toString() ?? '',
+          subtitle: qData['subtitle']?.toString() ?? '',
+          type: qData['type']?.toString() ?? 'single',
+          options: (qData['options'] as List?)
+                  ?.map((opt) => Map<String, dynamic>.from(opt as Map))
+                  .toList() ??
+              [],
+          isDynamic: true,
+          stopAfterThis: qData['stopAfterThis'] == true,
+        );
+
+        _aiQuestions.add(newQuestion);
+        _aiQuestionsAsked++;
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error generating next question: $e');
+    }
+
+    _isQuestionsLoading = false;
+    notifyListeners();
     return false;
   }
 
