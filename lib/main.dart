@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'app_theme.dart';
 import 'providers/chat_provider.dart';
 import 'providers/onboarding_provider.dart';
@@ -11,6 +12,7 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,

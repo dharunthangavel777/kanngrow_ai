@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
@@ -27,8 +28,10 @@ class FCMService {
     _initialized = true; // Set early to prevent duplicate calls
 
     try {
-      // Register background handler first
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      // Register background handler first (only on native/mobile)
+      if (!kIsWeb) {
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      }
 
       // 1. Request permission (non-blocking — run async after UI is ready)
       _requestPermissionAndRegister();
