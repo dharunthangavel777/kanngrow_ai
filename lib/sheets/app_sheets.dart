@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../utils/network_config.dart';
 import '../app_theme.dart';
 import '../utils/app_toast.dart';
+import '../services/razorpay_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared sheet base — all sub-screens inherit this look
@@ -670,6 +671,9 @@ class _NotificationsSheetState extends State<NotificationsSheet> {
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. PLAN & SUBSCRIPTION
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. PLAN & SUBSCRIPTION (RAZORPAY TEST MODE GATEWAY)
+// ─────────────────────────────────────────────────────────────────────────────
 class PlanSheet extends StatefulWidget {
   const PlanSheet({super.key});
 
@@ -679,72 +683,29 @@ class PlanSheet extends StatefulWidget {
 
 class _PlanSheetState extends State<PlanSheet> {
   bool _isUpgrading = false;
+  String _billingCycle = 'monthly'; // 'monthly' | 'annual'
 
-  Future<void> _initiateCheckout(String tier) async {
+  Future<void> _initiateRazorpayCheckout(String tier) async {
     setState(() => _isUpgrading = true);
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        AppToast.show(context, 'User not authenticated', isError: true);
-        return;
-      }
-
-      final headers = await NetworkConfig.getHeaders();
-      final body = jsonEncode({
-        'tier': tier,
-        'successUrl': 'https://kanngrow.com/billing/success',
-        'cancelUrl': 'https://kanngrow.com/billing/cancel',
-      });
-
-      final response = await http.post(
-        Uri.parse('${NetworkConfig.baseUrl}/billing/checkout'),
-        headers: headers,
-        body: body,
-      );
-
-      final resBody = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && resBody['success'] == true) {
-        final checkoutUrl = resBody['data']['url'] as String;
-
-        await Clipboard.setData(ClipboardData(text: checkoutUrl));
-
+    await RazorpayService.startSubscriptionCheckout(
+      context: context,
+      tier: tier,
+      billingCycle: _billingCycle,
+      onComplete: (isSuccess) {
         if (mounted) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              backgroundColor: AppColors.surfaceDark,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Text('Upgrade checkout URL copied!',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-              content: Text(
-                'The checkout URL has been copied to your clipboard. Please paste it into your browser to complete your subscription securely via Stripe.\n\nURL: $checkoutUrl',
-                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK', style: TextStyle(color: AppColors.lightCyan)),
-                ),
-              ],
-            ),
-          );
+          setState(() => _isUpgrading = false);
         }
-      } else {
-        final errMsg = resBody['error'] ?? 'Checkout failed';
-        if (mounted) {
-          AppToast.show(context, errMsg, isError: true);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        AppToast.show(context, 'Failed to initiate checkout: $e', isError: true);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isUpgrading = false);
-      }
-    }
+      },
+    );
+  }
+
+  void _openBillingHistory() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const UserBillingHistorySheet(),
+    );
   }
 
   @override
@@ -822,24 +783,24 @@ class _PlanSheetState extends State<PlanSheet> {
                     ),
                     const SizedBox(height: 14),
                     if (currentTier == 'free') ...[
-                      _planFeature('10 chats / day limit'),
-                      _planFeature('Basic AI Model routing'),
-                      _planFeature('Community support access'),
+                      _planFeature('10 AI chats / day limit'),
+                      _planFeature('GPT-4o-mini & basic model routing'),
+                      _planFeature('Community assistance access'),
                     ] else if (currentTier == 'standard') ...[
-                      _planFeature('100 chats / day limit'),
-                      _planFeature('Advanced SEO analysis'),
-                      _planFeature('Competitor research tool'),
-                      _planFeature('Extended knowledge base access'),
+                      _planFeature('100 AI chats / day limit', isPro: true),
+                      _planFeature('Advanced E-Commerce SEO Engine', isPro: true),
+                      _planFeature('Deep competitor research tool', isPro: true),
+                      _planFeature('GPT-4o fast reasoning model', isPro: true),
                     ] else if (currentTier == 'premium') ...[
-                      _planFeature('500 chats / day limit'),
-                      _planFeature('Deep competitor intelligence'),
-                      _planFeature('AI content generation suite'),
-                      _planFeature('E-commerce strategy roadmaps'),
+                      _planFeature('500 AI chats / day limit', isPro: true),
+                      _planFeature('Full AI Content Generation Suite', isPro: true),
+                      _planFeature('Predictive Trend Analysis & Intelligence', isPro: true),
+                      _planFeature('High-Priority Dedicated LLM Queue', isPro: true),
                     ] else if (currentTier == 'enterprise') ...[
-                      _planFeature('5000 chats / day limit'),
-                      _planFeature('Custom fine-tuned LLM routing'),
-                      _planFeature('Multi-user team management'),
-                      _planFeature('API tokens & white-label controls'),
+                      _planFeature('5,000 AI chats / day limit', isPro: true),
+                      _planFeature('Custom fine-tuned LLM & Team Workspaces', isPro: true),
+                      _planFeature('API Tokens & White-label exports', isPro: true),
+                      _planFeature('24/7 Dedicated Account Manager', isPro: true),
                     ],
                     if (currentTier != 'free') ...[
                       const Padding(
@@ -850,11 +811,11 @@ class _PlanSheetState extends State<PlanSheet> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Billing Source',
+                            'Payment Gateway',
                             style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
                           ),
                           Text(
-                            _formatSourceType(sub['sourceType'] as String?),
+                            _formatSourceType(sub['sourceType'] as String? ?? sub['gateway'] as String?),
                             style: const TextStyle(color: AppColors.lightCyan, fontSize: 12, fontWeight: FontWeight.w600),
                           ),
                         ],
@@ -864,7 +825,7 @@ class _PlanSheetState extends State<PlanSheet> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Duration / Expiry',
+                            'Validity / Expiry',
                             style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
                           ),
                           Text(
@@ -873,33 +834,91 @@ class _PlanSheetState extends State<PlanSheet> {
                           ),
                         ],
                       ),
-                      if (sub['notes'] != null && (sub['notes'] as String).isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Notes',
-                              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                sub['notes'] as String,
-                                textAlign: TextAlign.right,
-                                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, fontStyle: FontStyle.italic),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                     ],
                   ],
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              // Billing Cycle Switch (Monthly / Annual)
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.bgDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _billingCycle = 'monthly'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _billingCycle == 'monthly' ? AppColors.surfaceDark : Colors.transparent,
+                            borderRadius: BorderRadius.circular(9),
+                            border: _billingCycle == 'monthly' ? Border.all(color: Colors.white.withOpacity(0.1)) : null,
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Monthly Billing',
+                              style: TextStyle(
+                                color: _billingCycle == 'monthly' ? Colors.white : Colors.white.withOpacity(0.5),
+                                fontSize: 13,
+                                fontWeight: _billingCycle == 'monthly' ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _billingCycle = 'annual'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _billingCycle == 'annual' ? AppColors.surfaceDark : Colors.transparent,
+                            borderRadius: BorderRadius.circular(9),
+                            border: _billingCycle == 'annual' ? Border.all(color: AppColors.lightCyan.withOpacity(0.3)) : null,
+                          ),
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Annual',
+                                  style: TextStyle(
+                                    color: _billingCycle == 'annual' ? Colors.white : Colors.white.withOpacity(0.5),
+                                    fontSize: 13,
+                                    fontWeight: _billingCycle == 'annual' ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.lightCyan.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'SAVE 17%',
+                                    style: TextStyle(color: AppColors.lightCyan, fontSize: 9, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4),
                 child: Text('Available Plans', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
@@ -909,7 +928,13 @@ class _PlanSheetState extends State<PlanSheet> {
               _isUpgrading
                   ? const Center(child: Padding(
                       padding: EdgeInsets.all(24.0),
-                      child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan)),
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan)),
+                          SizedBox(height: 12),
+                          Text('Opening Razorpay Payment Gateway…', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        ],
+                      ),
                     ))
                   : Column(
                       children: [
@@ -917,25 +942,25 @@ class _PlanSheetState extends State<PlanSheet> {
                           _upgradeOptionCard(
                             tier: 'standard',
                             name: 'Standard Plan',
-                            price: '₹1,500 / month',
-                            desc: 'Best for small online sellers starting out.',
-                            features: ['100 chats / day', 'SEO recommendations', 'Competitor lookup'],
+                            price: _billingCycle == 'annual' ? '₹14,990 / year' : '₹1,499 / month',
+                            desc: 'Perfect for small sellers scaling their online presence.',
+                            features: ['100 chats / day limit', 'SEO intelligence suite', 'Competitor keyword tracking', 'GPT-4o engine'],
                           ),
                         if (currentTier == 'free' || currentTier == 'standard')
                           _upgradeOptionCard(
                             tier: 'premium',
                             name: 'Premium Plan',
-                            price: '₹4,000 / month',
-                            desc: 'For growing e-commerce businesses.',
-                            features: ['500 chats / day', 'Marketing strategies', 'Content suite'],
+                            price: _billingCycle == 'annual' ? '₹39,990 / year' : '₹3,999 / month',
+                            desc: 'Full-fledged AI Co-Founder for high-volume stores.',
+                            features: ['500 chats / day limit', 'Predictive market trends', 'E-commerce content generator', 'Priority processing'],
                           ),
                         if (currentTier != 'enterprise')
                           _upgradeOptionCard(
                             tier: 'enterprise',
                             name: 'Enterprise Plan',
-                            price: 'Custom Pricing',
-                            desc: 'Dedicated models and multi-user configurations.',
-                            features: ['5000 chats / day', 'Fine-tuned LLM access', 'Team accounts'],
+                            price: _billingCycle == 'annual' ? '₹1,49,990 / year' : '₹14,999 / month',
+                            desc: 'Dedicated enterprise models, API tokens & multi-user teams.',
+                            features: ['5,000 chats / day limit', 'Custom fine-tuned LLM', 'API token access', 'Dedicated SLA support'],
                           ),
                       ],
                     ),
@@ -945,15 +970,15 @@ class _PlanSheetState extends State<PlanSheet> {
               _SheetCard(children: [
                 _SheetRow(
                   icon: Icons.receipt_long_outlined,
-                  label: 'Billing History',
-                  onTap: () => AppToast.show(context, 'Loading Stripe invoices…', icon: Icons.receipt_long_outlined),
+                  label: 'Payment & Invoice History',
+                  onTap: _openBillingHistory,
                 ),
                 _SheetDivider(),
                 _SheetRow(
-                  icon: Icons.credit_card_outlined,
-                  label: 'Payment Method',
-                  value: sub['stripeSubscriptionId'] != null ? 'Linked Credit Card' : 'None',
-                  onTap: () => AppToast.show(context, 'Manage payments securely on Stripe', icon: Icons.credit_card_outlined),
+                  icon: Icons.security_rounded,
+                  label: 'Payment Gateway',
+                  value: 'Razorpay Test Gateway',
+                  onTap: () => AppToast.show(context, 'Secured with 256-bit Razorpay Gateway encryption', icon: Icons.lock_outline_rounded),
                 ),
               ]),
             ],
@@ -1003,7 +1028,7 @@ class _PlanSheetState extends State<PlanSheet> {
               )),
           const SizedBox(height: 12),
           GestureDetector(
-            onTap: () => _initiateCheckout(tier),
+            onTap: () => _initiateRazorpayCheckout(tier),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1013,7 +1038,7 @@ class _PlanSheetState extends State<PlanSheet> {
               ),
               child: const Center(
                 child: Text(
-                  'Upgrade Now',
+                  'Pay with Razorpay (Test Mode)',
                   style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14),
                 ),
               ),
@@ -1040,10 +1065,11 @@ class _PlanSheetState extends State<PlanSheet> {
       );
 
   String _formatSourceType(String? source) {
-    if (source == null) return 'Stripe Payment';
+    if (source == null) return 'Razorpay Test Gateway';
     switch (source) {
+      case 'razorpay':
       case 'payment':
-        return 'Stripe Payment';
+        return 'Razorpay Gateway';
       case 'admin_assignment':
         return 'Admin Assigned';
       case 'promo':
@@ -1055,7 +1081,7 @@ class _PlanSheetState extends State<PlanSheet> {
       case 'enterprise_contract':
         return 'Enterprise Contract';
       default:
-        return 'Special Access';
+        return 'Razorpay Gateway';
     }
   }
 
@@ -1064,22 +1090,193 @@ class _PlanSheetState extends State<PlanSheet> {
       return 'Lifetime Access';
     }
     if (end == null) {
-      return 'None';
+      return 'Active';
     }
     try {
-      final expiry = DateTime.parse(end);
-      final daysLeft = expiry.difference(DateTime.now()).inDays;
-      final dateStr = '${expiry.year}-${expiry.month.toString().padLeft(2, '0')}-${expiry.day.toString().padLeft(2, '0')}';
-      if (daysLeft > 0) {
-        return '$dateStr ($daysLeft days remaining)';
-      } else if (daysLeft == 0) {
-        return '$dateStr (Expires today)';
-      } else {
-        return '$dateStr (Expired)';
-      }
+      final date = DateTime.parse(end);
+      return '${date.day}/${date.month}/${date.year}';
     } catch (_) {
-      return end.split('T')[0];
+      return end;
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. USER BILLING & INVOICE HISTORY SHEET
+// ─────────────────────────────────────────────────────────────────────────────
+class UserBillingHistorySheet extends StatefulWidget {
+  const UserBillingHistorySheet({super.key});
+
+  @override
+  State<UserBillingHistorySheet> createState() => _UserBillingHistorySheetState();
+}
+
+class _UserBillingHistorySheetState extends State<UserBillingHistorySheet> {
+  List<dynamic> _transactions = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTransactions();
+  }
+
+  Future<void> _fetchTransactions() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final headers = await NetworkConfig.getHeaders();
+      final response = await http.get(
+        Uri.parse('${NetworkConfig.baseUrl}/billing/transactions/me'),
+        headers: headers,
+      );
+
+      final resBody = jsonDecode(response.body);
+      if (response.statusCode == 200 && resBody['success'] == true) {
+        if (mounted) {
+          setState(() {
+            _transactions = resBody['data']['transactions'] as List<dynamic>? ?? [];
+            _loading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _error = resBody['error'] ?? 'Failed to load transaction history';
+            _loading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AppSheet(
+      title: 'Payment & Invoice History',
+      child: _loading
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40.0),
+                child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.lightCyan)),
+              ),
+            )
+          : _error != null
+              ? Center(
+                  child: Column(
+                    children: [
+                      Text('Error: $_error', style: const TextStyle(color: AppColors.danger)),
+                      const SizedBox(height: 12),
+                      ElevatedButton(onPressed: _fetchTransactions, child: const Text('Retry')),
+                    ],
+                  ),
+                )
+              : _transactions.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40.0),
+                        child: Column(
+                          children: [
+                            Icon(Icons.receipt_long_outlined, size: 48, color: Colors.white.withOpacity(0.2)),
+                            const SizedBox(height: 12),
+                            Text('No transactions yet', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _transactions.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final tx = _transactions[index] as Map<String, dynamic>;
+                        final planName = tx['planName'] ?? 'Subscription';
+                        final amount = tx['amount'] ?? 0;
+                        final status = tx['status'] ?? 'captured';
+                        final paymentId = tx['paymentId'] ?? tx['id'] ?? '';
+                        final dateStr = tx['createdAt'] as String? ?? '';
+                        String formattedDate = dateStr;
+                        try {
+                          final d = DateTime.parse(dateStr);
+                          formattedDate = '${d.day}/${d.month}/${d.year} ${d.hour}:${d.minute.toString().padLeft(2, '0')}';
+                        } catch (_) {}
+
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.bgDark,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withOpacity(0.06)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.green.withOpacity(0.12),
+                                ),
+                                child: const Icon(Icons.check_rounded, color: Colors.green, size: 18),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      planName,
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'ID: $paymentId',
+                                      style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+                                    ),
+                                    Text(
+                                      formattedDate,
+                                      style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '₹$amount',
+                                    style: const TextStyle(color: Colors.green, fontSize: 15, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      status.toString().toUpperCase(),
+                                      style: const TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+    );
   }
 }
 

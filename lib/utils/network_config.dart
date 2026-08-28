@@ -1,8 +1,16 @@
+import 'package:flutter/foundation.dart';
 import '../services/token_service.dart';
 
 class NetworkConfig {
+  static const String _defaultUrl = kDebugMode
+      ? 'http://localhost:3000/api/v1'
+      : 'https://kanngrowbackend-production.up.railway.app/api/v1';
+
   static String get baseUrl {
-    return 'https://kanngrowbackend-production.up.railway.app/api/v1';
+    return const String.fromEnvironment(
+      'BACKEND_URL',
+      defaultValue: _defaultUrl,
+    );
   }
 
   static Future<Map<String, String>> getHeaders([Map<String, String>? extra]) async {
